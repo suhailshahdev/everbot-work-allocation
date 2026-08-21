@@ -57,6 +57,20 @@ describe("runCli", () => {
         "\n",
         "Total Work Hours Provided: 16\n",
         "Client Work Hours Requested: 16\n",
+        "\n",
+        "Cost Optimized Allocation\n",
+        "Delta: 2\n",
+        "\n",
+        "Total Hours Provided: 16\n",
+        "Total Charging Cost: $8\n",
+        "\n",
+        "Level 1 vs Level 2 Comparison\n",
+        "Level 1 Cost: $9\n",
+        "Level 2 Cost: $8\n",
+        "Cost Difference: $1\n",
+        "\n",
+        "Insight:\n",
+        "Level 1 strategy resulted in $1 additional cost due to mandatory usage of multiple robot categories.\n",
       ].join(""),
     );
   });
@@ -95,39 +109,62 @@ describe("runCli", () => {
     },
   );
 
-  it("prints the category error and returns failure when a category is missing", async () => {
+  it("preserves the category error while returning the valid cost-optimised result", async () => {
     const terminal = new FakeTerminal(["2", "3", "0", "16"]);
 
     const exitCode = await runCli(terminal);
 
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(0);
     expect(terminal.output()).toContain(
-      "Error: Unable to allocate at least one robot from each category with the available inventory.\n",
+      "Robot Assignment\n" +
+        "Error: Unable to allocate at least one robot from each category with the available inventory.\n",
     );
-    expect(terminal.output()).not.toContain("Robot Assignment");
+    expect(terminal.output()).toContain(
+      "Cost Optimized Allocation\n" +
+        "Bravo: 2\n" +
+        "Charlie: 2\n" +
+        "\n" +
+        "Total Hours Provided: 16\n" +
+        "Total Charging Cost: $10\n",
+    );
+    expect(terminal.output()).toContain(
+      "Comparison unavailable because both strategies must produce an allocation.\n",
+    );
   });
 
-  it("prints the no-robots error and returns failure for empty inventory", async () => {
+  it("prints both no-robots failures and returns failure for empty inventory", async () => {
     const terminal = new FakeTerminal(["0", "0", "0", "1"]);
 
     const exitCode = await runCli(terminal);
 
     expect(exitCode).toBe(1);
+    expect(
+      terminal.output().match(/Error: No robots available for assignment\.\n/g),
+    ).toHaveLength(2);
+    expect(terminal.output()).toContain("Robot Assignment\n");
+    expect(terminal.output()).toContain("Cost Optimized Allocation\n");
     expect(terminal.output()).toContain(
-      "Error: No robots available for assignment.\n",
+      "Comparison unavailable because both strategies must produce an allocation.\n",
     );
-    expect(terminal.output()).not.toContain("Robot Assignment");
   });
 
-  it("prints the capacity error and returns failure when total hours are insufficient", async () => {
+  it("prints both capacity failures when neither strategy can fulfil the request", async () => {
     const terminal = new FakeTerminal(["1", "1", "1", "17"]);
 
     const exitCode = await runCli(terminal);
 
     expect(exitCode).toBe(1);
+    expect(
+      terminal
+        .output()
+        .match(
+          /Error: Insufficient robot capacity to complete the requested work\.\n/g,
+        ),
+    ).toHaveLength(2);
+    expect(terminal.output()).toContain("Robot Assignment\n");
+    expect(terminal.output()).toContain("Cost Optimized Allocation\n");
     expect(terminal.output()).toContain(
-      "Error: Insufficient robot capacity to complete the requested work.\n",
+      "Comparison unavailable because both strategies must produce an allocation.\n",
     );
-    expect(terminal.output()).not.toContain("Robot Assignment");
   });
 });

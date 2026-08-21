@@ -1,14 +1,20 @@
+import { SingleClientComparisonService } from "../application/single-client-comparison.js";
 import { DomainError } from "../domain/errors.js";
 import { FleetInventory, type RobotCounts } from "../domain/fleet-inventory.js";
 import { WorkRequest } from "../domain/work-request.js";
 import { CategoryDistributionStrategy } from "../strategies/category-distribution-strategy.js";
+import { CostOptimizedStrategy } from "../strategies/cost-optimized-strategy.js";
+import { renderSingleClientAnalysis } from "./allocation-presenter.js";
 
 export interface Terminal {
   writeLine(message?: string): void;
   question(prompt: string): Promise<string>;
 }
 
-const categoryDistribution = new CategoryDistributionStrategy();
+const comparisonService = new SingleClientComparisonService(
+  new CategoryDistributionStrategy(),
+  new CostOptimizedStrategy(),
+);
 
 export async function runInteractiveAllocation(
   terminal: Terminal,
@@ -26,25 +32,19 @@ export async function runInteractiveAllocation(
   terminal.writeLine();
 
   try {
-    const allocation = categoryDistribution.allocate(
+    const analysis = comparisonService.analyze(
       FleetInventory.create(counts),
       WorkRequest.create(workHours),
     );
-    const assigned = allocation.robots.toRecord();
 
-    terminal.writeLine("Robot Assignment");
-    terminal.writeLine(`Bravo: ${assigned.bravo}`);
-    terminal.writeLine(`Charlie: ${assigned.charlie}`);
-    terminal.writeLine(`Delta: ${assigned.delta}`);
-    terminal.writeLine();
-    terminal.writeLine(
-      `Total Work Hours Provided: ${allocation.providedHours}`,
-    );
-    terminal.writeLine(
-      `Client Work Hours Requested: ${allocation.requestedHours}`,
-    );
+    for (const line of renderSingleClientAnalysis(analysis)) {
+      terminal.writeLine(line);
+    }
 
-    return 0;
+    return analysis.categoryDistribution.status === "allocated" ||
+      analysis.costOptimized.status === "allocated"
+      ? 0
+      : 1;
   } catch (error: unknown) {
     if (error instanceof DomainError) {
       terminal.writeLine(`Error: ${error.message}`);
