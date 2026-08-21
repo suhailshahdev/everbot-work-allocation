@@ -8,10 +8,10 @@ standby activation, and prioritised multi-client allocation.
 ## Robot catalogue
 
 | Robot type | Working hours per day | Charging cost per day |
-| --- | ---: | ---: |
-| Bravo | 3 | $2 |
-| Charlie | 5 | $3 |
-| Delta | 8 | $4 |
+| ---------- | --------------------: | --------------------: |
+| Bravo      |                     3 |                    $2 |
+| Charlie    |                     5 |                    $3 |
+| Delta      |                     8 |                    $4 |
 
 An assigned robot contributes its full daily hours, incurs its daily charging
 cost, and cannot be assigned again in the same daily allocation. An allocation
@@ -36,8 +36,36 @@ remain visible through clear terminal messages.
 
 ## Project status
 
-Implementation has not started. Source code, automated tests, setup instructions,
-and run commands will be added in independently reviewable increments.
+The tested TypeScript project scaffold is in place. The terminal currently prints
+the application title; allocation behaviour will be added in independently
+reviewable increments.
+
+## Setup and commands
+
+EverBot requires Node.js 22.13 or later on the Node 22 release line, or Node.js
+24 or later. Install the locked dependencies with:
+
+```sh
+npm ci
+```
+
+Run the development entry point:
+
+```sh
+npm run dev
+```
+
+Run formatting, linting, type checking, tests, and the production build:
+
+```sh
+npm run check
+```
+
+Run the compiled application after a successful build:
+
+```sh
+npm start
+```
 
 ## Planned engineering direction
 
@@ -54,6 +82,6 @@ These are design directions, not claims about code that already exists.
 ## AI assistance
 
 OpenAI Codex assisted with interpreting the challenge brief, exploring design
-trade-offs, and drafting and reviewing this initial project overview. This
-disclosure will be updated to describe any later assistance with tests,
-implementation, documentation, or review.
+trade-offs, designing tests, drafting the TypeScript project scaffold, and
+reviewing documentation. This disclosure will be updated as the implementation
+develops.
