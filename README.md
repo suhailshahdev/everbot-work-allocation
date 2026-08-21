@@ -38,9 +38,10 @@ remain visible through clear terminal messages.
 
 The tested TypeScript project scaffold, client work-request validation, fixed
 robot catalogue, immutable fleet inventory, and category-distribution strategy
-are in place. The terminal currently prints the application title; interactive
-allocation and cost optimisation will be added in independently reviewable
-increments.
+are in place. The terminal accepts active robot inventory and one client work
+request, then displays the category-distribution allocation or its precise
+failure. Cost optimisation will be added in the next independently reviewable
+increment.
 
 ## Setup and commands
 
@@ -84,7 +85,4 @@ These are design directions, not claims about code that already exists.
 ## AI assistance
 
 OpenAI Codex assisted with interpreting the challenge brief, exploring design
-trade-offs, designing and reviewing automated tests, adapting domain validation
-and inventory modelling, adapting the category-distribution allocation strategy,
-drafting the TypeScript project scaffold, and reviewing documentation. This
-disclosure will be updated as the implementation develops.
+trade-offs, and drafting and reviewing tests, implementation, and documentation.
