@@ -1,4 +1,5 @@
-export type DomainErrorCode = "INVALID_WORK_HOURS";
+export type DomainErrorCode =
+  "INVALID_WORK_HOURS" | "INVALID_ROBOT_COUNT" | "INSUFFICIENT_INVENTORY";
 
 export class DomainError extends Error {
   public override readonly name = "DomainError";

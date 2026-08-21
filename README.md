@@ -36,9 +36,10 @@ remain visible through clear terminal messages.
 
 ## Project status
 
-The tested TypeScript project scaffold and client work-request validation are in
-place. The terminal currently prints the application title; inventory and
-allocation behaviour will be added in independently reviewable increments.
+The tested TypeScript project scaffold, client work-request validation, fixed
+robot catalogue, and immutable fleet inventory are in place. The terminal
+currently prints the application title; allocation strategies will be added in
+independently reviewable increments.
 
 ## Setup and commands
 
@@ -82,6 +83,6 @@ These are design directions, not claims about code that already exists.
 ## AI assistance
 
 OpenAI Codex assisted with interpreting the challenge brief, exploring design
-trade-offs, designing and reviewing automated tests and domain validation,
-drafting the TypeScript project scaffold, and reviewing documentation. This
-disclosure will be updated as the implementation develops.
+trade-offs, designing and reviewing automated tests, adapting domain validation
+and inventory modelling, drafting the TypeScript project scaffold, and reviewing
+documentation. This disclosure will be updated as the implementation develops.
