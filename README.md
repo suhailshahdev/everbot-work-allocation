@@ -41,8 +41,9 @@ robot catalogue, immutable fleet inventory, category-distribution strategy, and
 cost-optimised strategy are in place. For one client, the terminal displays both
 active-only strategy outcomes, compares their charging costs when both succeed,
 and automatically activates cost-optimised standby robots when the request
-exceeds active capacity. Multi-client input and prioritised allocation will be
-added in the next independently reviewable increments.
+exceeds active capacity. Parsing for ordered single- and multi-client work-hour
+input is also in place. Prioritised multi-client allocation and its terminal
+integration will be added in the next independently reviewable increment.
 
 ## Setup and commands
 
