@@ -1,3 +1,7 @@
+import {
+  MultiClientAllocationService,
+  type ClientWorkRequest,
+} from "../application/multi-client-allocation.js";
 import { SingleClientComparisonService } from "../application/single-client-comparison.js";
 import { StandbyActivationService } from "../application/standby-activation.js";
 import { DomainError } from "../domain/errors.js";
@@ -6,9 +10,11 @@ import { WorkRequest } from "../domain/work-request.js";
 import { CategoryDistributionStrategy } from "../strategies/category-distribution-strategy.js";
 import { CostOptimizedStrategy } from "../strategies/cost-optimized-strategy.js";
 import {
+  renderMultiClientAllocation,
   renderSingleClientAnalysis,
   renderStandbyActivation,
 } from "./allocation-presenter.js";
+import { parseClientWorkHours } from "./client-hours-parser.js";
 
 export interface Terminal {
   writeLine(message?: string): void;
@@ -22,6 +28,7 @@ const comparisonService = new SingleClientComparisonService(
   costOptimized,
 );
 const standbyService = new StandbyActivationService(costOptimized);
+const multiClientService = new MultiClientAllocationService(standbyService);
 
 export async function runInteractiveAllocation(
   terminal: Terminal,
@@ -35,32 +42,18 @@ export async function runInteractiveAllocation(
   };
 
   terminal.writeLine();
-  const workHours = await askWorkHours(terminal);
+  const clientWorkHours = await askClientWorkHours(terminal);
   terminal.writeLine();
 
   try {
     const inventory = FleetInventory.create(counts);
-    const request = WorkRequest.create(workHours);
-    const analysis = comparisonService.analyze(inventory, request);
-    const operational = standbyService.allocate(
-      inventory,
-      request,
-      costOptimized,
-    );
+    const [singleWorkHours] = clientWorkHours;
 
-    for (const line of renderSingleClientAnalysis(analysis)) {
-      terminal.writeLine(line);
+    if (clientWorkHours.length === 1 && singleWorkHours !== undefined) {
+      return runSingleClient(terminal, inventory, singleWorkHours);
     }
 
-    if (operational.status === "standby-activated") {
-      terminal.writeLine();
-
-      for (const line of renderStandbyActivation(operational)) {
-        terminal.writeLine(line);
-      }
-    }
-
-    return operational.status === "infeasible" ? 1 : 0;
+    return runMultipleClients(terminal, inventory, clientWorkHours);
   } catch (error: unknown) {
     if (error instanceof DomainError) {
       terminal.writeLine(`Error: ${error.message}`);
@@ -69,6 +62,60 @@ export async function runInteractiveAllocation(
 
     throw error;
   }
+}
+
+function runSingleClient(
+  terminal: Terminal,
+  inventory: FleetInventory,
+  workHours: number,
+): 0 | 1 {
+  const request = WorkRequest.create(workHours);
+  const analysis = comparisonService.analyze(inventory, request);
+  const operational = standbyService.allocate(
+    inventory,
+    request,
+    costOptimized,
+  );
+
+  for (const line of renderSingleClientAnalysis(analysis)) {
+    terminal.writeLine(line);
+  }
+
+  if (operational.status === "standby-activated") {
+    terminal.writeLine();
+
+    for (const line of renderStandbyActivation(operational)) {
+      terminal.writeLine(line);
+    }
+  }
+
+  return operational.status === "infeasible" ? 1 : 0;
+}
+
+function runMultipleClients(
+  terminal: Terminal,
+  inventory: FleetInventory,
+  clientWorkHours: readonly number[],
+): 0 | 1 {
+  const clients: ClientWorkRequest[] = clientWorkHours.map(
+    (workHours, index) => ({
+      clientId: index + 1,
+      request: WorkRequest.create(workHours),
+    }),
+  );
+  const result = multiClientService.allocate({
+    activeInventory: inventory,
+    clients,
+    strategy: costOptimized,
+  });
+
+  for (const line of renderMultiClientAllocation(result)) {
+    terminal.writeLine(line);
+  }
+
+  return result.clients.some((client) => client.status === "infeasible")
+    ? 1
+    : 0;
 }
 
 async function askRobotCount(
@@ -86,12 +133,12 @@ async function askRobotCount(
   }
 }
 
-async function askWorkHours(terminal: Terminal): Promise<number> {
+async function askClientWorkHours(terminal: Terminal): Promise<number[]> {
   while (true) {
     terminal.writeLine("Enter client work hours:");
-    const value = parseInteger(await terminal.question(""));
+    const value = parseClientWorkHours(await terminal.question(""));
 
-    if (value !== undefined && value > 0) {
+    if (value !== undefined) {
       return value;
     }
 

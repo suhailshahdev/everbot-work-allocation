@@ -2,6 +2,7 @@ import type {
   AllocationOutcome,
   SingleClientAnalysis,
 } from "../application/single-client-comparison.js";
+import type { MultiClientAllocationResult } from "../application/multi-client-allocation.js";
 import type { StandbyAllocation } from "../application/standby-activation.js";
 import type { FleetInventory } from "../domain/fleet-inventory.js";
 import { ROBOT_CATALOG, ROBOT_TYPES } from "../domain/robot-catalog.js";
@@ -41,6 +42,67 @@ export function renderStandbyActivation(
     `Excess Hours: ${result.allocation.excessHours}`,
     `Total Charging Cost: $${result.allocation.chargingCost}`,
   );
+
+  return lines;
+}
+
+export function renderMultiClientAllocation(
+  result: MultiClientAllocationResult,
+): readonly string[] {
+  const lines = [
+    "Multi-Client Allocation",
+    `Allocation Policy: ${result.policyName}`,
+    "Priority Order:",
+    ...result.clients.map(
+      (client) =>
+        `${client.priority}. Client ${client.clientId}: ${client.requestedHours} hours`,
+    ),
+  ];
+
+  for (const client of result.clients) {
+    lines.push("", `Client ${client.clientId}`, `Priority: ${client.priority}`);
+
+    if (client.status === "infeasible") {
+      lines.push(
+        "Status: Infeasible",
+        `Requested Hours: ${client.requestedHours}`,
+        `Error: ${client.error.message}`,
+      );
+      continue;
+    }
+
+    const activeRobotLines = renderRobotCounts(client.activeRobots);
+    const standbyRobotLines = renderRobotCounts(client.standbyRobots);
+
+    lines.push(
+      `Status: ${client.status === "allocated" ? "Allocated" : "Standby activated"}`,
+      `Requested Hours: ${client.requestedHours}`,
+      "Active Robots:",
+      ...(activeRobotLines.length > 0 ? activeRobotLines : ["None"]),
+      `Active Charging Cost: $${client.activeRobots.totalChargingCost}`,
+      "Standby Robots:",
+      ...(standbyRobotLines.length > 0 ? standbyRobotLines : ["None"]),
+      `Standby Charging Cost: $${client.standbyRobots.totalChargingCost}`,
+      `Shortfall Hours: ${client.shortfallHours}`,
+      `Total Hours Provided: ${client.allocation.providedHours}`,
+      `Excess Hours: ${client.allocation.excessHours}`,
+      `Total Charging Cost: $${client.allocation.chargingCost}`,
+    );
+  }
+
+  return lines;
+}
+
+function renderRobotCounts(inventory: FleetInventory): string[] {
+  const lines: string[] = [];
+
+  for (const type of ROBOT_TYPES) {
+    const count = inventory.count(type);
+
+    if (count > 0) {
+      lines.push(`${ROBOT_CATALOG[type].label}: ${count}`);
+    }
+  }
 
   return lines;
 }

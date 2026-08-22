@@ -41,9 +41,10 @@ robot catalogue, immutable fleet inventory, category-distribution strategy, and
 cost-optimised strategy are in place. For one client, the terminal displays both
 active-only strategy outcomes, compares their charging costs when both succeed,
 and automatically activates cost-optimised standby robots when the request
-exceeds active capacity. Parsing for ordered single- and multi-client work-hour
-input is also in place. Prioritised multi-client allocation and its terminal
-integration will be added in the next independently reviewable increment.
+exceeds active capacity. The terminal also accepts an ordered batch of client
+requests, serves the highest-hour requests first through one shared active
+inventory, and activates standby robots for any remaining shortfall. The four
+core challenge levels are now implemented.
 
 ## Setup and commands
 
@@ -72,7 +73,7 @@ Run the compiled application after a successful build:
 npm start
 ```
 
-## Planned engineering direction
+## Engineering approach
 
 - Keep allocation rules independent from terminal input and output.
 - Represent category distribution and cost optimisation as interchangeable
@@ -81,8 +82,6 @@ npm start
   active inventory while coordinating a multi-client batch.
 - Test observable behaviour against the challenge examples, objective order,
   error cases, and deterministic ties.
-
-These are design directions, not claims about code that already exists.
 
 ## AI assistance
 

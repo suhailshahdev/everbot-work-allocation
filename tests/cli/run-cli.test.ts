@@ -205,4 +205,64 @@ describe("runCli", () => {
       ].join(""),
     );
   });
+
+  it("allocates multiple clients in stable highest-hours priority order", async () => {
+    const terminal = new FakeTerminal(["2", "3", "2", "12,16,17,10,21"]);
+
+    const exitCode = await runCli(terminal);
+
+    expect(exitCode).toBe(0);
+    expect(terminal.output()).toContain(
+      [
+        "Multi-Client Allocation\n",
+        "Allocation Policy: Cost optimised\n",
+        "Priority Order:\n",
+        "1. Client 5: 21 hours\n",
+        "2. Client 3: 17 hours\n",
+        "3. Client 2: 16 hours\n",
+        "4. Client 1: 12 hours\n",
+        "5. Client 4: 10 hours\n",
+      ].join(""),
+    );
+    expect(terminal.output()).toContain(
+      [
+        "Client 5\n",
+        "Priority: 1\n",
+        "Status: Allocated\n",
+        "Requested Hours: 21\n",
+        "Active Robots:\n",
+        "Charlie: 1\n",
+        "Delta: 2\n",
+        "Active Charging Cost: $11\n",
+        "Standby Robots:\n",
+        "None\n",
+        "Standby Charging Cost: $0\n",
+        "Shortfall Hours: 0\n",
+        "Total Hours Provided: 21\n",
+        "Excess Hours: 0\n",
+        "Total Charging Cost: $11\n",
+      ].join(""),
+    );
+    expect(terminal.output()).toContain(
+      [
+        "Client 3\n",
+        "Priority: 2\n",
+        "Status: Standby activated\n",
+        "Requested Hours: 17\n",
+        "Active Robots:\n",
+        "Bravo: 2\n",
+        "Charlie: 2\n",
+        "Active Charging Cost: $10\n",
+        "Standby Robots:\n",
+        "Bravo: 1\n",
+        "Standby Charging Cost: $2\n",
+        "Shortfall Hours: 1\n",
+        "Total Hours Provided: 19\n",
+        "Excess Hours: 2\n",
+        "Total Charging Cost: $12\n",
+      ].join(""),
+    );
+    expect(terminal.output()).not.toContain("Level 1 vs Level 2 Comparison");
+    expect(terminal.output()).not.toContain("Allocation Summary");
+  });
 });
