@@ -68,6 +68,20 @@ describe("MultiClientAllocationService", () => {
       charlie: 0,
       delta: 0,
     });
+    expect(result.summary).toEqual({
+      totalClients: 4,
+      fulfilledClients: 4,
+      totalActiveRobotsUsed: 12,
+      totalStandbyRobotsUsed: 0,
+      totalRobotsUsed: 12,
+      totalChargingCost: 36,
+      activeRobotUtilisationPercent: {
+        average: 100,
+        bravo: 100,
+        charlie: 100,
+        delta: 100,
+      },
+    });
     expect(inventory.toRecord()).toEqual({ bravo: 4, charlie: 4, delta: 4 });
     expect(clientRequests.map((client) => client.clientId)).toEqual([
       1, 2, 3, 4,
@@ -138,6 +152,20 @@ describe("MultiClientAllocationService", () => {
     expect(second.allocation.excessHours).toBe(0);
     expect(second.allocation.chargingCost).toBe(6);
     expect(result.remainingActiveInventory.isEmpty).toBe(true);
+    expect(result.summary).toEqual({
+      totalClients: 2,
+      fulfilledClients: 2,
+      totalActiveRobotsUsed: 3,
+      totalStandbyRobotsUsed: 3,
+      totalRobotsUsed: 6,
+      totalChargingCost: 18,
+      activeRobotUtilisationPercent: {
+        average: 100,
+        bravo: 100,
+        charlie: 100,
+        delta: 100,
+      },
+    });
   });
 
   it("records a failed high-priority client without consuming inventory, then continues", () => {
@@ -270,6 +298,86 @@ describe("MultiClientAllocationService", () => {
       bravo: 0,
       charlie: 1,
       delta: 0,
+    });
+    expect(result.summary).toEqual({
+      totalClients: 2,
+      fulfilledClients: 1,
+      totalActiveRobotsUsed: 2,
+      totalStandbyRobotsUsed: 0,
+      totalRobotsUsed: 2,
+      totalChargingCost: 6,
+      activeRobotUtilisationPercent: {
+        average: 66.7,
+        bravo: 100,
+        charlie: 0,
+        delta: 100,
+      },
+    });
+  });
+
+  it("calculates overall utilisation as a weighted active-fleet ratio", () => {
+    const result = service.allocate({
+      activeInventory: FleetInventory.create({
+        bravo: 3,
+        charlie: 1,
+        delta: 1,
+      }),
+      clients: clients(3),
+      strategy,
+    });
+
+    expect(result.summary.activeRobotUtilisationPercent).toEqual({
+      average: 20,
+      bravo: 33.3,
+      charlie: 0,
+      delta: 0,
+    });
+  });
+
+  it("keeps utilisation available when one category has no active robots", () => {
+    const result = service.allocate({
+      activeInventory: FleetInventory.create({
+        bravo: 0,
+        charlie: 1,
+        delta: 1,
+      }),
+      clients: clients(5),
+      strategy,
+    });
+
+    expect(result.summary.activeRobotUtilisationPercent).toEqual({
+      average: 50,
+      bravo: null,
+      charlie: 100,
+      delta: 0,
+    });
+  });
+
+  it("reports unavailable active utilisation for an entirely standby-funded batch", () => {
+    const result = service.allocate({
+      activeInventory: FleetInventory.create({
+        bravo: 0,
+        charlie: 0,
+        delta: 0,
+      }),
+      clients: clients(6),
+      strategy,
+      standbyPolicy: "automatic",
+    });
+
+    expect(result.summary).toEqual({
+      totalClients: 1,
+      fulfilledClients: 1,
+      totalActiveRobotsUsed: 0,
+      totalStandbyRobotsUsed: 2,
+      totalRobotsUsed: 2,
+      totalChargingCost: 4,
+      activeRobotUtilisationPercent: {
+        average: null,
+        bravo: null,
+        charlie: null,
+        delta: null,
+      },
     });
   });
 });

@@ -40,10 +40,28 @@ export interface MultiClientAllocationCommand {
   readonly standbyPolicy?: StandbyPolicy;
 }
 
+export interface ActiveRobotUtilisationPercent {
+  readonly average: number | null;
+  readonly bravo: number | null;
+  readonly charlie: number | null;
+  readonly delta: number | null;
+}
+
+export interface AllocationSummary {
+  readonly totalClients: number;
+  readonly fulfilledClients: number;
+  readonly totalActiveRobotsUsed: number;
+  readonly totalStandbyRobotsUsed: number;
+  readonly totalRobotsUsed: number;
+  readonly totalChargingCost: number;
+  readonly activeRobotUtilisationPercent: ActiveRobotUtilisationPercent;
+}
+
 export interface MultiClientAllocationResult {
   readonly policyName: string;
   readonly clients: readonly ClientAllocation[];
   readonly remainingActiveInventory: FleetInventory;
+  readonly summary: AllocationSummary;
 }
 
 export class MultiClientAllocationService {
@@ -62,7 +80,14 @@ export class MultiClientAllocationService {
           left.originalIndex - right.originalIndex,
       );
     const allocations: ClientAllocation[] = [];
+    const emptyInventory = FleetInventory.create({
+      bravo: 0,
+      charlie: 0,
+      delta: 0,
+    });
     let remainingActiveInventory = command.activeInventory;
+    let activeRobotsUsed = emptyInventory;
+    let standbyRobotsUsed = emptyInventory;
 
     for (const [index, prioritized] of prioritizedClients.entries()) {
       const { client } = prioritized;
@@ -89,16 +114,15 @@ export class MultiClientAllocationService {
           remainingActiveInventory = remainingActiveInventory.subtract(
             operational.allocation.robots,
           );
+          activeRobotsUsed = activeRobotsUsed.add(
+            operational.allocation.robots,
+          );
           allocations.push({
             ...base,
             status: operational.status,
             allocation: operational.allocation,
             activeRobots: operational.allocation.robots,
-            standbyRobots: FleetInventory.create({
-              bravo: 0,
-              charlie: 0,
-              delta: 0,
-            }),
+            standbyRobots: emptyInventory,
             shortfallHours: 0,
           });
           continue;
@@ -107,6 +131,8 @@ export class MultiClientAllocationService {
         remainingActiveInventory = remainingActiveInventory.subtract(
           operational.activeRobots,
         );
+        activeRobotsUsed = activeRobotsUsed.add(operational.activeRobots);
+        standbyRobotsUsed = standbyRobotsUsed.add(operational.standbyRobots);
         allocations.push({
           ...base,
           status: operational.status,
@@ -129,6 +155,67 @@ export class MultiClientAllocationService {
       policyName: command.strategy.name,
       clients: allocations,
       remainingActiveInventory,
+      summary: this.summarize(
+        command.activeInventory,
+        allocations,
+        activeRobotsUsed,
+        standbyRobotsUsed,
+      ),
     };
+  }
+
+  private summarize(
+    initialActiveInventory: FleetInventory,
+    allocations: readonly ClientAllocation[],
+    activeRobotsUsed: FleetInventory,
+    standbyRobotsUsed: FleetInventory,
+  ): AllocationSummary {
+    const fulfilled = allocations.filter(
+      (allocation): allocation is FulfilledClientAllocation =>
+        allocation.status !== "infeasible",
+    );
+    const totalActiveRobotsUsed = activeRobotsUsed.totalRobots;
+    const totalStandbyRobotsUsed = standbyRobotsUsed.totalRobots;
+
+    return {
+      totalClients: allocations.length,
+      fulfilledClients: fulfilled.length,
+      totalActiveRobotsUsed,
+      totalStandbyRobotsUsed,
+      totalRobotsUsed: totalActiveRobotsUsed + totalStandbyRobotsUsed,
+      totalChargingCost: fulfilled.reduce(
+        (total, allocation) => total + allocation.allocation.chargingCost,
+        0,
+      ),
+      activeRobotUtilisationPercent: {
+        average: this.calculateUtilisation(
+          totalActiveRobotsUsed,
+          initialActiveInventory.totalRobots,
+        ),
+        bravo: this.calculateUtilisation(
+          activeRobotsUsed.count("bravo"),
+          initialActiveInventory.count("bravo"),
+        ),
+        charlie: this.calculateUtilisation(
+          activeRobotsUsed.count("charlie"),
+          initialActiveInventory.count("charlie"),
+        ),
+        delta: this.calculateUtilisation(
+          activeRobotsUsed.count("delta"),
+          initialActiveInventory.count("delta"),
+        ),
+      },
+    };
+  }
+
+  private calculateUtilisation(
+    robotsUsed: number,
+    robotsAvailable: number,
+  ): number | null {
+    if (robotsAvailable === 0) {
+      return null;
+    }
+
+    return Math.round((robotsUsed / robotsAvailable) * 1_000) / 10;
   }
 }

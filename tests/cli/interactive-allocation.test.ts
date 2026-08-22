@@ -265,7 +265,58 @@ describe("runInteractiveAllocation", () => {
       ].join(""),
     );
     expect(terminal.output()).not.toContain("Level 1 vs Level 2 Comparison");
-    expect(terminal.output()).not.toContain("Allocation Summary");
+    expect(terminal.output()).toContain(
+      [
+        "Allocation Summary\n",
+        "\n",
+        "Clients\n",
+        "  Fulfilled: 5 of 5\n",
+        "\n",
+        "Robot Usage\n",
+        "  Active: 7\n",
+        "  Standby: 7\n",
+        "  Total Robots Used: 14\n",
+        "\n",
+        "Cost\n",
+        "  Total Charging Cost: $44\n",
+        "\n",
+        "Active Fleet Utilisation\n",
+        "  Average: 100%\n",
+        "  Bravo: 100%\n",
+        "  Charlie: 100%\n",
+        "  Delta: 100%\n",
+      ].join(""),
+    );
+  });
+
+  it("renders unavailable utilisation for an entirely standby-funded batch", async () => {
+    const terminal = new FakeTerminal(["0", "0", "0", "6,3"]);
+
+    const exitCode = await runInteractiveAllocation(terminal);
+
+    expect(exitCode).toBe(0);
+    expect(terminal.output()).toContain(
+      [
+        "Allocation Summary\n",
+        "\n",
+        "Clients\n",
+        "  Fulfilled: 2 of 2\n",
+        "\n",
+        "Robot Usage\n",
+        "  Active: 0\n",
+        "  Standby: 3\n",
+        "  Total Robots Used: 3\n",
+        "\n",
+        "Cost\n",
+        "  Total Charging Cost: $6\n",
+        "\n",
+        "Active Fleet Utilisation\n",
+        "  Average: N/A\n",
+        "  Bravo: N/A\n",
+        "  Charlie: N/A\n",
+        "  Delta: N/A\n",
+      ].join(""),
+    );
   });
 
   it("uses category distribution for a multi-client batch when selected", async () => {

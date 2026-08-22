@@ -46,7 +46,19 @@ requests, serves the highest-hour requests first through one shared active
 inventory, and activates standby robots for any remaining shortfall. The four
 core challenge levels are now implemented. An interactive session can run
 multiple allocations and lets the operator select the multi-client allocation
-policy or disable standby activation for active-only operation.
+policy or disable standby activation for active-only operation. Multi-client
+results conclude with aggregate robot usage, charging cost, and active-fleet
+utilisation metrics.
+
+## Allocation summary metrics
+
+Total robot usage and charging cost include active and standby robots assigned
+to fulfilled clients. Active-fleet utilisation excludes on-demand standby
+robots because the challenge supplies no standby inventory counts. Overall
+utilisation is the weighted ratio of active robots used to active robots
+available; each category uses the same ratio for that category. Percentages are
+rounded to at most one decimal place, and a zero active-inventory denominator is
+shown as `N/A`.
 
 ## Setup and commands
 

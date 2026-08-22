@@ -90,7 +90,34 @@ export function renderMultiClientAllocation(
     );
   }
 
+  const utilisation = result.summary.activeRobotUtilisationPercent;
+  lines.push(
+    "",
+    "Allocation Summary",
+    "",
+    "Clients",
+    `  Fulfilled: ${result.summary.fulfilledClients} of ${result.summary.totalClients}`,
+    "",
+    "Robot Usage",
+    `  Active: ${result.summary.totalActiveRobotsUsed}`,
+    `  Standby: ${result.summary.totalStandbyRobotsUsed}`,
+    `  Total Robots Used: ${result.summary.totalRobotsUsed}`,
+    "",
+    "Cost",
+    `  Total Charging Cost: $${result.summary.totalChargingCost}`,
+    "",
+    "Active Fleet Utilisation",
+    `  Average: ${formatUtilisation(utilisation.average)}`,
+    `  Bravo: ${formatUtilisation(utilisation.bravo)}`,
+    `  Charlie: ${formatUtilisation(utilisation.charlie)}`,
+    `  Delta: ${formatUtilisation(utilisation.delta)}`,
+  );
+
   return lines;
+}
+
+function formatUtilisation(value: number | null): string {
+  return value === null ? "N/A" : `${value}%`;
 }
 
 function renderRobotCounts(inventory: FleetInventory): string[] {
