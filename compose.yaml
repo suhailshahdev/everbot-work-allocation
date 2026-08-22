@@ -1,0 +1,10 @@
+services:
+  everbot:
+    image: everbot-work-allocation:local
+    build:
+      context: .
+    stdin_open: true
+    tty: true
+    init: true
+    environment:
+      TERM: xterm-256color

@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prestart": "npm run build",
     "start": "node dist/cli/main.js",
     "dev": "tsx src/cli/main.ts",
     "format:check": "prettier --check README.md package.json package-lock.json eslint.config.js tsconfig.json tsconfig.build.json src tests",
@@ -20,6 +21,13 @@
   },
   "engines": {
     "node": "^22.13.0 || >=24.0.0"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "^22.13.0 || >=24.0.0",
+      "onFail": "error"
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",

@@ -32,6 +32,26 @@ class FakeTerminal implements Terminal {
   }
 }
 
+class InterruptedTerminal implements Terminal {
+  readonly #transcript: string[] = [];
+
+  public writeLine(message = ""): void {
+    this.#transcript.push(`${message}\n`);
+  }
+
+  public async question(prompt: string): Promise<string> {
+    this.#transcript.push(prompt);
+    throw Object.assign(new Error("Aborted with Ctrl+C"), {
+      name: "AbortError",
+      code: "ABORT_ERR",
+    });
+  }
+
+  public output(): string {
+    return this.#transcript.join("");
+  }
+}
+
 describe("runCli", () => {
   it("shows the defaults and runs two allocations in one session", async () => {
     const terminal = new FakeTerminal([
@@ -130,4 +150,11 @@ describe("runCli", () => {
       expect(terminal.output()).toContain("Error: Please enter 1, 2, or 3.\n");
     },
   );
+
+  it("exits cleanly when Ctrl+C interrupts a prompt", async () => {
+    const terminal = new InterruptedTerminal();
+
+    await expect(runCli(terminal)).resolves.toBe(130);
+    expect(terminal.output().endsWith("Select an option [1]: \n")).toBe(true);
+  });
 });

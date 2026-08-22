@@ -60,32 +60,50 @@ available; each category uses the same ratio for that category. Percentages are
 rounded to at most one decimal place, and a zero active-inventory denominator is
 shown as `N/A`.
 
-## Setup and commands
+## Run EverBot
 
-EverBot requires Node.js 22.13 or later on the Node 22 release line, or Node.js
-24 or later. Install the locked dependencies with:
+Choose either the native Node.js path or the optional Docker path. The native
+path is recommended for development and gives the fastest repeat runs.
+
+### Native Node.js (recommended)
+
+Install Node.js 24 LTS. Version 24.19.0 is pinned in `.nvmrc` for users of a
+compatible Node version manager. Node.js 22.13 or later on the Node 22 release
+line is also supported.
+
+The same commands work in macOS and Linux terminals, Windows PowerShell, and
+Windows Command Prompt:
 
 ```sh
 npm ci
+npm start
 ```
 
-Run the development entry point:
+`npm start` builds the TypeScript project before launching the interactive
+terminal application. For development without a separate build, run:
 
 ```sh
 npm run dev
 ```
 
-Run formatting, linting, type checking, tests, and the production build:
+To run formatting, linting, type checking, tests, and the production build:
 
 ```sh
 npm run check
 ```
 
-Run the compiled application after a successful build:
+### Docker (no local Node.js required)
+
+Install Docker Desktop on macOS or Windows, or Docker Engine with the Compose
+plugin on Linux. Then run:
 
 ```sh
-npm start
+docker compose run --rm --build everbot
 ```
+
+The first run builds the pinned Node.js 24 image. Docker reuses cached build
+layers on later runs and removes the stopped application container when the
+session ends. No ports, volumes, or background services are created.
 
 ## Terminal presentation
 
@@ -93,10 +111,31 @@ Interactive terminals use a restrained amber, cyan, coral-red, and green palette
 to make headings, errors, operational states, and selected values easier to
 scan. Every state remains explicit in words, and output stays plain when
 terminal colour is unsupported or redirected. Set a non-empty `NO_COLOR`
-environment variable to disable ANSI styling explicitly:
+environment variable to disable ANSI styling explicitly. This is optional and
+is not needed for normal startup.
+
+macOS or Linux:
 
 ```sh
 NO_COLOR=1 npm start
+```
+
+Windows PowerShell:
+
+```powershell
+$env:NO_COLOR = "1"; npm start
+```
+
+Windows Command Prompt:
+
+```bat
+set NO_COLOR=1 && npm start
+```
+
+With Docker on any platform:
+
+```sh
+docker compose run --rm --build -e NO_COLOR=1 everbot
 ```
 
 ## Engineering approach
