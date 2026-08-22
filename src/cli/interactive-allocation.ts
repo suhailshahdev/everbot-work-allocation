@@ -19,6 +19,10 @@ import {
   renderStandbyActivation,
 } from "./allocation-presenter.js";
 import { parseClientWorkHours } from "./client-hours-parser.js";
+import {
+  PLAIN_TERMINAL_STYLES,
+  type TerminalStyles,
+} from "./terminal-styles.js";
 
 export interface Terminal {
   writeLine(message?: string): void;
@@ -37,17 +41,18 @@ const multiClientService = new MultiClientAllocationService(standbyService);
 export async function runInteractiveAllocation(
   terminal: Terminal,
   settings: AllocationSettings = DEFAULT_ALLOCATION_SETTINGS,
+  styles: TerminalStyles = PLAIN_TERMINAL_STYLES,
 ): Promise<0 | 1> {
-  terminal.writeLine("Enter number of robots available:");
+  terminal.writeLine(styles.heading("Enter number of robots available:"));
 
   const counts: RobotCounts = {
-    bravo: await askRobotCount(terminal, "Bravo"),
-    charlie: await askRobotCount(terminal, "Charlie"),
-    delta: await askRobotCount(terminal, "Delta"),
+    bravo: await askRobotCount(terminal, "Bravo", styles),
+    charlie: await askRobotCount(terminal, "Charlie", styles),
+    delta: await askRobotCount(terminal, "Delta", styles),
   };
 
   terminal.writeLine();
-  const clientWorkHours = await askClientWorkHours(terminal);
+  const clientWorkHours = await askClientWorkHours(terminal, styles);
   terminal.writeLine();
 
   try {
@@ -55,13 +60,25 @@ export async function runInteractiveAllocation(
     const [singleWorkHours] = clientWorkHours;
 
     if (clientWorkHours.length === 1 && singleWorkHours !== undefined) {
-      return runSingleClient(terminal, inventory, singleWorkHours, settings);
+      return runSingleClient(
+        terminal,
+        inventory,
+        singleWorkHours,
+        settings,
+        styles,
+      );
     }
 
-    return runMultipleClients(terminal, inventory, clientWorkHours, settings);
+    return runMultipleClients(
+      terminal,
+      inventory,
+      clientWorkHours,
+      settings,
+      styles,
+    );
   } catch (error: unknown) {
     if (error instanceof DomainError) {
-      terminal.writeLine(`Error: ${error.message}`);
+      terminal.writeLine(styles.error(`Error: ${error.message}`));
       return 1;
     }
 
@@ -74,6 +91,7 @@ function runSingleClient(
   inventory: FleetInventory,
   workHours: number,
   settings: AllocationSettings,
+  styles: TerminalStyles,
 ): 0 | 1 {
   const request = WorkRequest.create(workHours);
   const analysis = comparisonService.analyze(inventory, request);
@@ -84,14 +102,14 @@ function runSingleClient(
     settings.standbyPolicy,
   );
 
-  for (const line of renderSingleClientAnalysis(analysis)) {
+  for (const line of renderSingleClientAnalysis(analysis, styles)) {
     terminal.writeLine(line);
   }
 
   if (operational.status === "standby-activated") {
     terminal.writeLine();
 
-    for (const line of renderStandbyActivation(operational)) {
+    for (const line of renderStandbyActivation(operational, styles)) {
       terminal.writeLine(line);
     }
   }
@@ -104,6 +122,7 @@ function runMultipleClients(
   inventory: FleetInventory,
   clientWorkHours: readonly number[],
   settings: AllocationSettings,
+  styles: TerminalStyles,
 ): 0 | 1 {
   const clients: ClientWorkRequest[] = clientWorkHours.map(
     (workHours, index) => ({
@@ -121,7 +140,7 @@ function runMultipleClients(
     standbyPolicy: settings.standbyPolicy,
   });
 
-  for (const line of renderMultiClientAllocation(result)) {
+  for (const line of renderMultiClientAllocation(result, styles)) {
     terminal.writeLine(line);
   }
 
@@ -133,28 +152,38 @@ function runMultipleClients(
 async function askRobotCount(
   terminal: Terminal,
   label: string,
+  styles: TerminalStyles,
 ): Promise<number> {
   while (true) {
-    const value = parseInteger(await terminal.question(`${label}: `));
+    const value = parseInteger(
+      await terminal.question(`  ${styles.accent(`${label}:`)} `),
+    );
 
     if (value !== undefined && value >= 0) {
       return value;
     }
 
-    terminal.writeLine("Error: Robot counts must be non-negative integers.");
+    terminal.writeLine(
+      styles.error("Error: Robot counts must be non-negative integers."),
+    );
   }
 }
 
-async function askClientWorkHours(terminal: Terminal): Promise<number[]> {
+async function askClientWorkHours(
+  terminal: Terminal,
+  styles: TerminalStyles,
+): Promise<number[]> {
   while (true) {
-    terminal.writeLine("Enter client work hours:");
+    terminal.writeLine(styles.heading("Enter client work hours:"));
     const value = parseClientWorkHours(await terminal.question(""));
 
     if (value !== undefined) {
       return value;
     }
 
-    terminal.writeLine("Error: Work hours must be a positive integer.");
+    terminal.writeLine(
+      styles.error("Error: Work hours must be a positive integer."),
+    );
   }
 }
 

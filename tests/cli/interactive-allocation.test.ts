@@ -45,34 +45,34 @@ describe("runInteractiveAllocation", () => {
     expect(terminal.output()).toBe(
       [
         "Enter number of robots available:\n",
-        "Bravo: 2\n",
-        "Charlie: 3\n",
-        "Delta: 2\n",
+        "  Bravo: 2\n",
+        "  Charlie: 3\n",
+        "  Delta: 2\n",
         "\n",
         "Enter client work hours:\n",
         "16\n",
         "\n",
         "Robot Assignment\n",
-        "Bravo: 1\n",
-        "Charlie: 1\n",
-        "Delta: 1\n",
+        "  Bravo: 1\n",
+        "  Charlie: 1\n",
+        "  Delta: 1\n",
         "\n",
-        "Total Work Hours Provided: 16\n",
-        "Client Work Hours Requested: 16\n",
+        "  Total Work Hours Provided: 16\n",
+        "  Client Work Hours Requested: 16\n",
         "\n",
         "Cost Optimized Allocation\n",
-        "Delta: 2\n",
+        "  Delta: 2\n",
         "\n",
-        "Total Hours Provided: 16\n",
-        "Total Charging Cost: $8\n",
+        "  Total Hours Provided: 16\n",
+        "  Total Charging Cost: $8\n",
         "\n",
         "Level 1 vs Level 2 Comparison\n",
-        "Level 1 Cost: $9\n",
-        "Level 2 Cost: $8\n",
-        "Cost Difference: $1\n",
+        "  Level 1 Cost: $9\n",
+        "  Level 2 Cost: $8\n",
+        "  Cost Difference: $1\n",
         "\n",
-        "Insight:\n",
-        "Level 1 strategy resulted in $1 additional cost due to mandatory usage of multiple robot categories.\n",
+        "  Insight:\n",
+        "    Level 1 strategy resulted in $1 additional cost due to mandatory usage of multiple robot categories.\n",
       ].join(""),
     );
   });
@@ -86,9 +86,9 @@ describe("runInteractiveAllocation", () => {
 
       expect(exitCode).toBe(0);
       expect(terminal.output()).toContain(
-        `Bravo: ${invalidCount}\n` +
+        `  Bravo: ${invalidCount}\n` +
           "Error: Robot counts must be non-negative integers.\n" +
-          "Bravo: 2\n",
+          "  Bravo: 2\n",
       );
     },
   );
@@ -119,15 +119,15 @@ describe("runInteractiveAllocation", () => {
     expect(exitCode).toBe(0);
     expect(terminal.output()).toContain(
       "Robot Assignment\n" +
-        "Error: Unable to allocate at least one robot from each category with the available inventory.\n",
+        "  Error: Unable to allocate at least one robot from each category with the available inventory.\n",
     );
     expect(terminal.output()).toContain(
       "Cost Optimized Allocation\n" +
-        "Bravo: 2\n" +
-        "Charlie: 2\n" +
+        "  Bravo: 2\n" +
+        "  Charlie: 2\n" +
         "\n" +
-        "Total Hours Provided: 16\n" +
-        "Total Charging Cost: $10\n",
+        "  Total Hours Provided: 16\n" +
+        "  Total Charging Cost: $10\n",
     );
     expect(terminal.output()).toContain(
       "Comparison unavailable because both strategies must produce an allocation.\n",
@@ -151,19 +151,19 @@ describe("runInteractiveAllocation", () => {
     expect(terminal.output()).toContain(
       [
         "Standby Robot Activation\n",
-        "Active Robot Capacity: 0 hours\n",
-        "Client Work Requested: 6 hours\n",
-        "Shortfall Hours: 6\n",
-        "Active Robots Used:\n",
-        "None\n",
-        "Active Charging Cost: $0\n",
-        "Additional Standby Robots Required:\n",
-        "Bravo: 2 - cost $4\n",
-        "Standby Charging Cost: $4\n",
+        "  Active Robot Capacity: 0 hours\n",
+        "  Client Work Requested: 6 hours\n",
+        "  Shortfall Hours: 6\n",
+        "  Active Robots Used:\n",
+        "    None\n",
+        "  Active Charging Cost: $0\n",
+        "  Additional Standby Robots Required:\n",
+        "    Bravo: 2 - cost $4\n",
+        "  Standby Charging Cost: $4\n",
         "\n",
-        "Total Hours Provided: 6\n",
-        "Excess Hours: 0\n",
-        "Total Charging Cost: $4\n",
+        "  Total Hours Provided: 6\n",
+        "  Excess Hours: 0\n",
+        "  Total Charging Cost: $4\n",
       ].join(""),
     );
   });
@@ -189,21 +189,21 @@ describe("runInteractiveAllocation", () => {
     expect(terminal.output()).toContain(
       [
         "Standby Robot Activation\n",
-        "Active Robot Capacity: 16 hours\n",
-        "Client Work Requested: 21 hours\n",
-        "Shortfall Hours: 5\n",
-        "Active Robots Used:\n",
-        "Bravo: 1 - cost $2\n",
-        "Charlie: 1 - cost $3\n",
-        "Delta: 1 - cost $4\n",
-        "Active Charging Cost: $9\n",
-        "Additional Standby Robots Required:\n",
-        "Charlie: 1 - cost $3\n",
-        "Standby Charging Cost: $3\n",
+        "  Active Robot Capacity: 16 hours\n",
+        "  Client Work Requested: 21 hours\n",
+        "  Shortfall Hours: 5\n",
+        "  Active Robots Used:\n",
+        "    Bravo: 1 - cost $2\n",
+        "    Charlie: 1 - cost $3\n",
+        "    Delta: 1 - cost $4\n",
+        "  Active Charging Cost: $9\n",
+        "  Additional Standby Robots Required:\n",
+        "    Charlie: 1 - cost $3\n",
+        "  Standby Charging Cost: $3\n",
         "\n",
-        "Total Hours Provided: 21\n",
-        "Excess Hours: 0\n",
-        "Total Charging Cost: $12\n",
+        "  Total Hours Provided: 21\n",
+        "  Excess Hours: 0\n",
+        "  Total Charging Cost: $12\n",
       ].join(""),
     );
   });
@@ -217,51 +217,51 @@ describe("runInteractiveAllocation", () => {
     expect(terminal.output()).toContain(
       [
         "Multi-Client Allocation\n",
-        "Allocation Policy: Cost optimised\n",
-        "Priority Order:\n",
-        "1. Client 5: 21 hours\n",
-        "2. Client 3: 17 hours\n",
-        "3. Client 2: 16 hours\n",
-        "4. Client 1: 12 hours\n",
-        "5. Client 4: 10 hours\n",
+        "  Allocation Policy: Cost optimised\n",
+        "  Priority Order:\n",
+        "    1. Client 5: 21 hours\n",
+        "    2. Client 3: 17 hours\n",
+        "    3. Client 2: 16 hours\n",
+        "    4. Client 1: 12 hours\n",
+        "    5. Client 4: 10 hours\n",
       ].join(""),
     );
     expect(terminal.output()).toContain(
       [
         "Client 5\n",
-        "Priority: 1\n",
-        "Status: Allocated\n",
-        "Requested Hours: 21\n",
-        "Active Robots:\n",
-        "Charlie: 1\n",
-        "Delta: 2\n",
-        "Active Charging Cost: $11\n",
-        "Standby Robots:\n",
-        "None\n",
-        "Standby Charging Cost: $0\n",
-        "Shortfall Hours: 0\n",
-        "Total Hours Provided: 21\n",
-        "Excess Hours: 0\n",
-        "Total Charging Cost: $11\n",
+        "  Priority: 1\n",
+        "  Status: Allocated\n",
+        "  Requested Hours: 21\n",
+        "  Active Robots:\n",
+        "    Charlie: 1\n",
+        "    Delta: 2\n",
+        "  Active Charging Cost: $11\n",
+        "  Standby Robots:\n",
+        "    None\n",
+        "  Standby Charging Cost: $0\n",
+        "  Shortfall Hours: 0\n",
+        "  Total Hours Provided: 21\n",
+        "  Excess Hours: 0\n",
+        "  Total Charging Cost: $11\n",
       ].join(""),
     );
     expect(terminal.output()).toContain(
       [
         "Client 3\n",
-        "Priority: 2\n",
-        "Status: Standby activated\n",
-        "Requested Hours: 17\n",
-        "Active Robots:\n",
-        "Bravo: 2\n",
-        "Charlie: 2\n",
-        "Active Charging Cost: $10\n",
-        "Standby Robots:\n",
-        "Bravo: 1\n",
-        "Standby Charging Cost: $2\n",
-        "Shortfall Hours: 1\n",
-        "Total Hours Provided: 19\n",
-        "Excess Hours: 2\n",
-        "Total Charging Cost: $12\n",
+        "  Priority: 2\n",
+        "  Status: Standby activated\n",
+        "  Requested Hours: 17\n",
+        "  Active Robots:\n",
+        "    Bravo: 2\n",
+        "    Charlie: 2\n",
+        "  Active Charging Cost: $10\n",
+        "  Standby Robots:\n",
+        "    Bravo: 1\n",
+        "  Standby Charging Cost: $2\n",
+        "  Shortfall Hours: 1\n",
+        "  Total Hours Provided: 19\n",
+        "  Excess Hours: 2\n",
+        "  Total Charging Cost: $12\n",
       ].join(""),
     );
     expect(terminal.output()).not.toContain("Level 1 vs Level 2 Comparison");
@@ -330,7 +330,7 @@ describe("runInteractiveAllocation", () => {
 
     expect(exitCode).toBe(0);
     expect(terminal.output()).toContain(
-      "Allocation Policy: Category distribution\n",
+      "  Allocation Policy: Category distribution\n",
     );
   });
 
@@ -346,7 +346,7 @@ describe("runInteractiveAllocation", () => {
     expect(exitCode).toBe(1);
     expect(terminal.output()).not.toContain("Standby Robot Activation");
     expect(terminal.output()).toContain(
-      "Error: Insufficient robot capacity to complete the requested work.\n",
+      "  Error: Insufficient robot capacity to complete the requested work.\n",
     );
   });
 });

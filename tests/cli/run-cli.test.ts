@@ -54,12 +54,14 @@ describe("runCli", () => {
     expect(terminal.output()).toContain(
       [
         "EverBot Robot Work Allocation System\n",
+        "\n",
         "Current Settings\n",
-        "Allocation Policy: Cost optimised\n",
-        "Standby Activation: Automatic\n",
-        "1. Run allocation\n",
-        "2. Change settings\n",
-        "3. Exit\n",
+        "  Allocation Policy: Cost optimised\n",
+        "  Standby Activation: Automatic\n",
+        "\n",
+        "  1. Run allocation\n",
+        "  2. Change settings\n",
+        "  3. Exit\n",
         "Select an option [1]: ",
       ].join(""),
     );
@@ -96,14 +98,14 @@ describe("runCli", () => {
     expect(terminal.output()).toContain(
       [
         "Multi-Client Allocation\n",
-        "Allocation Policy: Category distribution\n",
+        "  Allocation Policy: Category distribution\n",
       ].join(""),
     );
     expect(terminal.output()).toContain(
-      "Client 1\nPriority: 1\nStatus: Infeasible\n",
+      "Client 1\n  Priority: 1\n  Status: Infeasible\n",
     );
     expect(terminal.output()).toContain(
-      "Client 2\nPriority: 2\nStatus: Allocated\n",
+      "Client 2\n  Priority: 2\n  Status: Allocated\n",
     );
     expect(terminal.output()).not.toContain("Status: Standby activated");
   });

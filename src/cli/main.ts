@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 
-import { stdin, stdout } from "node:process";
+import { env, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 
 import type { Terminal } from "./interactive-allocation.js";
 import { runCli } from "./run-cli.js";
+import {
+  createTerminalStyles,
+  shouldUseTerminalStyles,
+} from "./terminal-styles.js";
 
 const readline = createInterface({ input: stdin, output: stdout });
 
@@ -16,9 +20,15 @@ const terminal: Terminal = {
     return readline.question(prompt);
   },
 };
+const styles = createTerminalStyles(
+  shouldUseTerminalStyles({
+    colorSupported: stdout.isTTY === true && stdout.hasColors(),
+    noColor: env.NO_COLOR,
+  }),
+);
 
 try {
-  process.exitCode = await runCli(terminal);
+  process.exitCode = await runCli(terminal, styles);
 } finally {
   readline.close();
 }

@@ -87,6 +87,18 @@ Run the compiled application after a successful build:
 npm start
 ```
 
+## Terminal presentation
+
+Interactive terminals use a restrained amber, cyan, coral-red, and green palette
+to make headings, errors, operational states, and selected values easier to
+scan. Every state remains explicit in words, and output stays plain when
+terminal colour is unsupported or redirected. Set a non-empty `NO_COLOR`
+environment variable to disable ANSI styling explicitly:
+
+```sh
+NO_COLOR=1 npm start
+```
+
 ## Engineering approach
 
 - Keep allocation rules independent from terminal input and output.
