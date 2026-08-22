@@ -44,7 +44,9 @@ and automatically activates cost-optimised standby robots when the request
 exceeds active capacity. The terminal also accepts an ordered batch of client
 requests, serves the highest-hour requests first through one shared active
 inventory, and activates standby robots for any remaining shortfall. The four
-core challenge levels are now implemented.
+core challenge levels are now implemented. An interactive session can run
+multiple allocations and lets the operator select the multi-client allocation
+policy or disable standby activation for active-only operation.
 
 ## Setup and commands
 

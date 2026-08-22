@@ -3,6 +3,7 @@ import { DomainError } from "../domain/errors.js";
 import { FleetInventory } from "../domain/fleet-inventory.js";
 import type { WorkRequest } from "../domain/work-request.js";
 import type { AllocationStrategy } from "../strategies/allocation-strategy.js";
+import type { StandbyPolicy } from "./allocation-settings.js";
 import type { StandbyActivationService } from "./standby-activation.js";
 
 export interface ClientWorkRequest {
@@ -36,6 +37,7 @@ export interface MultiClientAllocationCommand {
   readonly activeInventory: FleetInventory;
   readonly clients: readonly ClientWorkRequest[];
   readonly strategy: AllocationStrategy;
+  readonly standbyPolicy?: StandbyPolicy;
 }
 
 export interface MultiClientAllocationResult {
@@ -75,6 +77,7 @@ export class MultiClientAllocationService {
           remainingActiveInventory,
           client.request,
           command.strategy,
+          command.standbyPolicy,
         );
 
         if (operational.status === "infeasible") {

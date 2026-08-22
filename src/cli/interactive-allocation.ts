@@ -2,6 +2,10 @@ import {
   MultiClientAllocationService,
   type ClientWorkRequest,
 } from "../application/multi-client-allocation.js";
+import {
+  DEFAULT_ALLOCATION_SETTINGS,
+  type AllocationSettings,
+} from "../application/allocation-settings.js";
 import { SingleClientComparisonService } from "../application/single-client-comparison.js";
 import { StandbyActivationService } from "../application/standby-activation.js";
 import { DomainError } from "../domain/errors.js";
@@ -32,6 +36,7 @@ const multiClientService = new MultiClientAllocationService(standbyService);
 
 export async function runInteractiveAllocation(
   terminal: Terminal,
+  settings: AllocationSettings = DEFAULT_ALLOCATION_SETTINGS,
 ): Promise<0 | 1> {
   terminal.writeLine("Enter number of robots available:");
 
@@ -50,10 +55,10 @@ export async function runInteractiveAllocation(
     const [singleWorkHours] = clientWorkHours;
 
     if (clientWorkHours.length === 1 && singleWorkHours !== undefined) {
-      return runSingleClient(terminal, inventory, singleWorkHours);
+      return runSingleClient(terminal, inventory, singleWorkHours, settings);
     }
 
-    return runMultipleClients(terminal, inventory, clientWorkHours);
+    return runMultipleClients(terminal, inventory, clientWorkHours, settings);
   } catch (error: unknown) {
     if (error instanceof DomainError) {
       terminal.writeLine(`Error: ${error.message}`);
@@ -68,6 +73,7 @@ function runSingleClient(
   terminal: Terminal,
   inventory: FleetInventory,
   workHours: number,
+  settings: AllocationSettings,
 ): 0 | 1 {
   const request = WorkRequest.create(workHours);
   const analysis = comparisonService.analyze(inventory, request);
@@ -75,6 +81,7 @@ function runSingleClient(
     inventory,
     request,
     costOptimized,
+    settings.standbyPolicy,
   );
 
   for (const line of renderSingleClientAnalysis(analysis)) {
@@ -96,6 +103,7 @@ function runMultipleClients(
   terminal: Terminal,
   inventory: FleetInventory,
   clientWorkHours: readonly number[],
+  settings: AllocationSettings,
 ): 0 | 1 {
   const clients: ClientWorkRequest[] = clientWorkHours.map(
     (workHours, index) => ({
@@ -106,7 +114,11 @@ function runMultipleClients(
   const result = multiClientService.allocate({
     activeInventory: inventory,
     clients,
-    strategy: costOptimized,
+    strategy:
+      settings.allocationPolicy === "category-distribution"
+        ? categoryDistribution
+        : costOptimized,
+    standbyPolicy: settings.standbyPolicy,
   });
 
   for (const line of renderMultiClientAllocation(result)) {

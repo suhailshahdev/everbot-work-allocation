@@ -9,6 +9,7 @@ import { DomainError } from "../../src/domain/errors.js";
 import { FleetInventory } from "../../src/domain/fleet-inventory.js";
 import { WorkRequest } from "../../src/domain/work-request.js";
 import type { AllocationStrategy } from "../../src/strategies/allocation-strategy.js";
+import { CategoryDistributionStrategy } from "../../src/strategies/category-distribution-strategy.js";
 import { CostOptimizedStrategy } from "../../src/strategies/cost-optimized-strategy.js";
 
 const strategy = new CostOptimizedStrategy();
@@ -190,6 +191,85 @@ describe("MultiClientAllocationService", () => {
       bravo: 2,
       charlie: 1,
       delta: 2,
+    });
+  });
+
+  it("uses the selected category-distribution strategy for the complete batch", () => {
+    const result = service.allocate({
+      activeInventory: FleetInventory.create({
+        bravo: 4,
+        charlie: 4,
+        delta: 4,
+      }),
+      clients: clients(12, 7),
+      strategy: new CategoryDistributionStrategy(),
+      standbyPolicy: "automatic",
+    });
+
+    expect(result.policyName).toBe("Category distribution");
+    expect(result.clients.map((client) => client.status)).toEqual([
+      "allocated",
+      "allocated",
+    ]);
+
+    const assignments = result.clients.map((client) => {
+      if (client.status === "infeasible") {
+        throw new Error("Expected both clients to be fulfilled");
+      }
+
+      return client.activeRobots.toRecord();
+    });
+
+    expect(assignments).toEqual([
+      { bravo: 1, charlie: 1, delta: 1 },
+      { bravo: 1, charlie: 1, delta: 1 },
+    ]);
+    expect(result.remainingActiveInventory.toRecord()).toEqual({
+      bravo: 2,
+      charlie: 2,
+      delta: 2,
+    });
+  });
+
+  it("isolates a high-priority capacity failure when standby is disabled", () => {
+    const result = service.allocate({
+      activeInventory: FleetInventory.create({
+        bravo: 1,
+        charlie: 1,
+        delta: 1,
+      }),
+      clients: clients(10, 21),
+      strategy,
+      standbyPolicy: "disabled",
+    });
+
+    expect(result.clients[0]).toMatchObject({
+      clientId: 2,
+      priority: 1,
+      status: "infeasible",
+      error: { code: "INSUFFICIENT_CAPACITY" },
+    });
+    expect(result.clients[1]).toMatchObject({
+      clientId: 1,
+      priority: 2,
+      status: "allocated",
+    });
+
+    const second = result.clients[1];
+
+    if (second?.status !== "allocated") {
+      throw new Error("Expected the lower-priority client to be fulfilled");
+    }
+
+    expect(second.activeRobots.toRecord()).toEqual({
+      bravo: 1,
+      charlie: 0,
+      delta: 1,
+    });
+    expect(result.remainingActiveInventory.toRecord()).toEqual({
+      bravo: 0,
+      charlie: 1,
+      delta: 0,
     });
   });
 });

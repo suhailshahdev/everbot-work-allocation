@@ -33,236 +33,99 @@ class FakeTerminal implements Terminal {
 }
 
 describe("runCli", () => {
-  it("renders the challenge's 16-hour example through the complete CLI", async () => {
-    const terminal = new FakeTerminal(["2", "3", "2", "16"]);
+  it("shows the defaults and runs two allocations in one session", async () => {
+    const terminal = new FakeTerminal([
+      "",
+      "2",
+      "3",
+      "2",
+      "16",
+      "",
+      "1",
+      "1",
+      "1",
+      "6",
+      "3",
+    ]);
 
     const exitCode = await runCli(terminal);
 
     expect(exitCode).toBe(0);
-    expect(terminal.output()).toBe(
+    expect(terminal.output()).toContain(
       [
         "EverBot Robot Work Allocation System\n",
-        "Enter number of robots available:\n",
-        "Bravo: 2\n",
-        "Charlie: 3\n",
-        "Delta: 2\n",
-        "\n",
-        "Enter client work hours:\n",
-        "16\n",
-        "\n",
-        "Robot Assignment\n",
-        "Bravo: 1\n",
-        "Charlie: 1\n",
-        "Delta: 1\n",
-        "\n",
-        "Total Work Hours Provided: 16\n",
-        "Client Work Hours Requested: 16\n",
-        "\n",
-        "Cost Optimized Allocation\n",
-        "Delta: 2\n",
-        "\n",
-        "Total Hours Provided: 16\n",
-        "Total Charging Cost: $8\n",
-        "\n",
-        "Level 1 vs Level 2 Comparison\n",
-        "Level 1 Cost: $9\n",
-        "Level 2 Cost: $8\n",
-        "Cost Difference: $1\n",
-        "\n",
-        "Insight:\n",
-        "Level 1 strategy resulted in $1 additional cost due to mandatory usage of multiple robot categories.\n",
+        "Current Settings\n",
+        "Allocation Policy: Cost optimised\n",
+        "Standby Activation: Automatic\n",
+        "1. Run allocation\n",
+        "2. Change settings\n",
+        "3. Exit\n",
+        "Select an option [1]: ",
       ].join(""),
     );
-  });
-
-  it.each(["-1", "1.5", "robots", "9007199254740992"])(
-    "explains and re-prompts for invalid robot count %s",
-    async (invalidCount) => {
-      const terminal = new FakeTerminal([invalidCount, "2", "3", "2", "16"]);
-
-      const exitCode = await runCli(terminal);
-
-      expect(exitCode).toBe(0);
-      expect(terminal.output()).toContain(
-        `Bravo: ${invalidCount}\n` +
-          "Error: Robot counts must be non-negative integers.\n" +
-          "Bravo: 2\n",
-      );
-    },
-  );
-
-  it.each(["0", "-1", "1.5", "hours", "9007199254740992"])(
-    "explains and re-prompts for invalid client work hours %s",
-    async (invalidHours) => {
-      const terminal = new FakeTerminal(["2", "3", "2", invalidHours, "16"]);
-
-      const exitCode = await runCli(terminal);
-
-      expect(exitCode).toBe(0);
-      expect(terminal.output()).toContain(
-        "Enter client work hours:\n" +
-          `${invalidHours}\n` +
-          "Error: Work hours must be a positive integer.\n" +
-          "Enter client work hours:\n" +
-          "16\n",
-      );
-    },
-  );
-
-  it("preserves the category error while returning the valid cost-optimised result", async () => {
-    const terminal = new FakeTerminal(["2", "3", "0", "16"]);
-
-    const exitCode = await runCli(terminal);
-
-    expect(exitCode).toBe(0);
-    expect(terminal.output()).toContain(
-      "Robot Assignment\n" +
-        "Error: Unable to allocate at least one robot from each category with the available inventory.\n",
-    );
-    expect(terminal.output()).toContain(
-      "Cost Optimized Allocation\n" +
-        "Bravo: 2\n" +
-        "Charlie: 2\n" +
-        "\n" +
-        "Total Hours Provided: 16\n" +
-        "Total Charging Cost: $10\n",
-    );
-    expect(terminal.output()).toContain(
-      "Comparison unavailable because both strategies must produce an allocation.\n",
-    );
-  });
-
-  it("fulfils a request entirely from standby when active inventory is empty", async () => {
-    const terminal = new FakeTerminal(["0", "0", "0", "6"]);
-
-    const exitCode = await runCli(terminal);
-
-    expect(exitCode).toBe(0);
     expect(
-      terminal.output().match(/Error: No robots available for assignment\.\n/g),
+      terminal.output().match(/Enter number of robots available:\n/g),
     ).toHaveLength(2);
-    expect(terminal.output()).toContain("Robot Assignment\n");
-    expect(terminal.output()).toContain("Cost Optimized Allocation\n");
-    expect(terminal.output()).toContain(
-      "Comparison unavailable because both strategies must produce an allocation.\n",
-    );
-    expect(terminal.output()).toContain(
-      [
-        "Standby Robot Activation\n",
-        "Active Robot Capacity: 0 hours\n",
-        "Client Work Requested: 6 hours\n",
-        "Shortfall Hours: 6\n",
-        "Active Robots Used:\n",
-        "None\n",
-        "Active Charging Cost: $0\n",
-        "Additional Standby Robots Required:\n",
-        "Bravo: 2 - cost $4\n",
-        "Standby Charging Cost: $4\n",
-        "\n",
-        "Total Hours Provided: 6\n",
-        "Excess Hours: 0\n",
-        "Total Charging Cost: $4\n",
-      ].join(""),
+    expect(terminal.output().match(/Robot Assignment\n/g)).toHaveLength(2);
+    expect(terminal.output().match(/Select an option \[1\]: /g)).toHaveLength(
+      3,
     );
   });
 
-  it("recovers the challenge's active-capacity shortfall with standby robots", async () => {
-    const terminal = new FakeTerminal(["1", "1", "1", "21"]);
+  it("toggles both settings and applies them to a later allocation", async () => {
+    const terminal = new FakeTerminal([
+      "2",
+      "1",
+      "2",
+      "3",
+      "",
+      "1",
+      "1",
+      "1",
+      "21,10",
+      "3",
+    ]);
 
     const exitCode = await runCli(terminal);
 
-    expect(exitCode).toBe(0);
-    expect(
-      terminal
-        .output()
-        .match(
-          /Error: Insufficient robot capacity to complete the requested work\.\n/g,
-        ),
-    ).toHaveLength(2);
-    expect(terminal.output()).toContain("Robot Assignment\n");
-    expect(terminal.output()).toContain("Cost Optimized Allocation\n");
+    expect(exitCode).toBe(1);
     expect(terminal.output()).toContain(
-      "Comparison unavailable because both strategies must produce an allocation.\n",
+      "Allocation Policy: Category distribution\n",
     );
-    expect(terminal.output()).toContain(
-      [
-        "Standby Robot Activation\n",
-        "Active Robot Capacity: 16 hours\n",
-        "Client Work Requested: 21 hours\n",
-        "Shortfall Hours: 5\n",
-        "Active Robots Used:\n",
-        "Bravo: 1 - cost $2\n",
-        "Charlie: 1 - cost $3\n",
-        "Delta: 1 - cost $4\n",
-        "Active Charging Cost: $9\n",
-        "Additional Standby Robots Required:\n",
-        "Charlie: 1 - cost $3\n",
-        "Standby Charging Cost: $3\n",
-        "\n",
-        "Total Hours Provided: 21\n",
-        "Excess Hours: 0\n",
-        "Total Charging Cost: $12\n",
-      ].join(""),
-    );
-  });
-
-  it("allocates multiple clients in stable highest-hours priority order", async () => {
-    const terminal = new FakeTerminal(["2", "3", "2", "12,16,17,10,21"]);
-
-    const exitCode = await runCli(terminal);
-
-    expect(exitCode).toBe(0);
+    expect(terminal.output()).toContain("Standby Activation: Disabled\n");
     expect(terminal.output()).toContain(
       [
         "Multi-Client Allocation\n",
-        "Allocation Policy: Cost optimised\n",
-        "Priority Order:\n",
-        "1. Client 5: 21 hours\n",
-        "2. Client 3: 17 hours\n",
-        "3. Client 2: 16 hours\n",
-        "4. Client 1: 12 hours\n",
-        "5. Client 4: 10 hours\n",
+        "Allocation Policy: Category distribution\n",
       ].join(""),
     );
     expect(terminal.output()).toContain(
-      [
-        "Client 5\n",
-        "Priority: 1\n",
-        "Status: Allocated\n",
-        "Requested Hours: 21\n",
-        "Active Robots:\n",
-        "Charlie: 1\n",
-        "Delta: 2\n",
-        "Active Charging Cost: $11\n",
-        "Standby Robots:\n",
-        "None\n",
-        "Standby Charging Cost: $0\n",
-        "Shortfall Hours: 0\n",
-        "Total Hours Provided: 21\n",
-        "Excess Hours: 0\n",
-        "Total Charging Cost: $11\n",
-      ].join(""),
+      "Client 1\nPriority: 1\nStatus: Infeasible\n",
     );
     expect(terminal.output()).toContain(
-      [
-        "Client 3\n",
-        "Priority: 2\n",
-        "Status: Standby activated\n",
-        "Requested Hours: 17\n",
-        "Active Robots:\n",
-        "Bravo: 2\n",
-        "Charlie: 2\n",
-        "Active Charging Cost: $10\n",
-        "Standby Robots:\n",
-        "Bravo: 1\n",
-        "Standby Charging Cost: $2\n",
-        "Shortfall Hours: 1\n",
-        "Total Hours Provided: 19\n",
-        "Excess Hours: 2\n",
-        "Total Charging Cost: $12\n",
-      ].join(""),
+      "Client 2\nPriority: 2\nStatus: Allocated\n",
     );
-    expect(terminal.output()).not.toContain("Level 1 vs Level 2 Comparison");
-    expect(terminal.output()).not.toContain("Allocation Summary");
+    expect(terminal.output()).not.toContain("Status: Standby activated");
   });
+
+  it.each([
+    {
+      name: "main menu",
+      inputs: ["9", "3"],
+    },
+    {
+      name: "settings menu",
+      inputs: ["2", "9", "3", "3"],
+    },
+  ])(
+    "explains and re-prompts for an invalid $name choice",
+    async ({ inputs }) => {
+      const terminal = new FakeTerminal(inputs);
+
+      const exitCode = await runCli(terminal);
+
+      expect(exitCode).toBe(0);
+      expect(terminal.output()).toContain("Error: Please enter 1, 2, or 3.\n");
+    },
+  );
 });

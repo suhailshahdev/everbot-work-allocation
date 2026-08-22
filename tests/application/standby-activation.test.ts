@@ -159,4 +159,32 @@ describe("StandbyActivationService", () => {
       error: { code: "CATEGORY_DISTRIBUTION_IMPOSSIBLE" },
     });
   });
+
+  it("preserves a capacity failure without mutating inventory when standby is disabled", () => {
+    const activeInventory = FleetInventory.create({
+      bravo: 1,
+      charlie: 1,
+      delta: 1,
+    });
+
+    const result = service.allocate(
+      activeInventory,
+      WorkRequest.create(21),
+      costOptimized,
+      "disabled",
+    );
+
+    expect(result).toMatchObject({
+      status: "infeasible",
+      error: {
+        code: "INSUFFICIENT_CAPACITY",
+        message: "Insufficient robot capacity to complete the requested work.",
+      },
+    });
+    expect(activeInventory.toRecord()).toEqual({
+      bravo: 1,
+      charlie: 1,
+      delta: 1,
+    });
+  });
 });

@@ -4,6 +4,7 @@ import { FleetInventory } from "../domain/fleet-inventory.js";
 import { ROBOT_CATALOG } from "../domain/robot-catalog.js";
 import { WorkRequest } from "../domain/work-request.js";
 import type { AllocationStrategy } from "../strategies/allocation-strategy.js";
+import type { StandbyPolicy } from "./allocation-settings.js";
 
 export interface ActiveAllocation {
   readonly status: "allocated";
@@ -35,9 +36,20 @@ export class StandbyActivationService {
     activeInventory: FleetInventory,
     request: WorkRequest,
     activeStrategy: AllocationStrategy,
+    policy: StandbyPolicy = "automatic",
   ): OperationalAllocation {
     if (activeInventory.totalHours >= request.hours) {
       return this.allocateFromActive(activeInventory, request, activeStrategy);
+    }
+
+    if (policy === "disabled") {
+      return {
+        status: "infeasible",
+        error: new DomainError(
+          "INSUFFICIENT_CAPACITY",
+          "Insufficient robot capacity to complete the requested work.",
+        ),
+      };
     }
 
     const shortfallHours = request.hours - activeInventory.totalHours;
