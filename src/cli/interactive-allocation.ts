@@ -1,20 +1,27 @@
 import { SingleClientComparisonService } from "../application/single-client-comparison.js";
+import { StandbyActivationService } from "../application/standby-activation.js";
 import { DomainError } from "../domain/errors.js";
 import { FleetInventory, type RobotCounts } from "../domain/fleet-inventory.js";
 import { WorkRequest } from "../domain/work-request.js";
 import { CategoryDistributionStrategy } from "../strategies/category-distribution-strategy.js";
 import { CostOptimizedStrategy } from "../strategies/cost-optimized-strategy.js";
-import { renderSingleClientAnalysis } from "./allocation-presenter.js";
+import {
+  renderSingleClientAnalysis,
+  renderStandbyActivation,
+} from "./allocation-presenter.js";
 
 export interface Terminal {
   writeLine(message?: string): void;
   question(prompt: string): Promise<string>;
 }
 
+const categoryDistribution = new CategoryDistributionStrategy();
+const costOptimized = new CostOptimizedStrategy();
 const comparisonService = new SingleClientComparisonService(
-  new CategoryDistributionStrategy(),
-  new CostOptimizedStrategy(),
+  categoryDistribution,
+  costOptimized,
 );
+const standbyService = new StandbyActivationService(costOptimized);
 
 export async function runInteractiveAllocation(
   terminal: Terminal,
@@ -32,19 +39,28 @@ export async function runInteractiveAllocation(
   terminal.writeLine();
 
   try {
-    const analysis = comparisonService.analyze(
-      FleetInventory.create(counts),
-      WorkRequest.create(workHours),
+    const inventory = FleetInventory.create(counts);
+    const request = WorkRequest.create(workHours);
+    const analysis = comparisonService.analyze(inventory, request);
+    const operational = standbyService.allocate(
+      inventory,
+      request,
+      costOptimized,
     );
 
     for (const line of renderSingleClientAnalysis(analysis)) {
       terminal.writeLine(line);
     }
 
-    return analysis.categoryDistribution.status === "allocated" ||
-      analysis.costOptimized.status === "allocated"
-      ? 0
-      : 1;
+    if (operational.status === "standby-activated") {
+      terminal.writeLine();
+
+      for (const line of renderStandbyActivation(operational)) {
+        terminal.writeLine(line);
+      }
+    }
+
+    return operational.status === "infeasible" ? 1 : 0;
   } catch (error: unknown) {
     if (error instanceof DomainError) {
       terminal.writeLine(`Error: ${error.message}`);

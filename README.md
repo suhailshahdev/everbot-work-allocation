@@ -39,8 +39,10 @@ remain visible through clear terminal messages.
 The tested TypeScript project scaffold, client work-request validation, fixed
 robot catalogue, immutable fleet inventory, category-distribution strategy, and
 cost-optimised strategy are in place. For one client, the terminal displays both
-strategy outcomes and compares their charging costs when both succeed. Automatic
-standby recovery will be added in the next independently reviewable increment.
+active-only strategy outcomes, compares their charging costs when both succeed,
+and automatically activates cost-optimised standby robots when the request
+exceeds active capacity. Multi-client input and prioritised allocation will be
+added in the next independently reviewable increments.
 
 ## Setup and commands
 

@@ -132,12 +132,12 @@ describe("runCli", () => {
     );
   });
 
-  it("prints both no-robots failures and returns failure for empty inventory", async () => {
-    const terminal = new FakeTerminal(["0", "0", "0", "1"]);
+  it("fulfils a request entirely from standby when active inventory is empty", async () => {
+    const terminal = new FakeTerminal(["0", "0", "0", "6"]);
 
     const exitCode = await runCli(terminal);
 
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(0);
     expect(
       terminal.output().match(/Error: No robots available for assignment\.\n/g),
     ).toHaveLength(2);
@@ -146,14 +146,32 @@ describe("runCli", () => {
     expect(terminal.output()).toContain(
       "Comparison unavailable because both strategies must produce an allocation.\n",
     );
+    expect(terminal.output()).toContain(
+      [
+        "Standby Robot Activation\n",
+        "Active Robot Capacity: 0 hours\n",
+        "Client Work Requested: 6 hours\n",
+        "Shortfall Hours: 6\n",
+        "Active Robots Used:\n",
+        "None\n",
+        "Active Charging Cost: $0\n",
+        "Additional Standby Robots Required:\n",
+        "Bravo: 2 - cost $4\n",
+        "Standby Charging Cost: $4\n",
+        "\n",
+        "Total Hours Provided: 6\n",
+        "Excess Hours: 0\n",
+        "Total Charging Cost: $4\n",
+      ].join(""),
+    );
   });
 
-  it("prints both capacity failures when neither strategy can fulfil the request", async () => {
-    const terminal = new FakeTerminal(["1", "1", "1", "17"]);
+  it("recovers the challenge's active-capacity shortfall with standby robots", async () => {
+    const terminal = new FakeTerminal(["1", "1", "1", "21"]);
 
     const exitCode = await runCli(terminal);
 
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(0);
     expect(
       terminal
         .output()
@@ -165,6 +183,26 @@ describe("runCli", () => {
     expect(terminal.output()).toContain("Cost Optimized Allocation\n");
     expect(terminal.output()).toContain(
       "Comparison unavailable because both strategies must produce an allocation.\n",
+    );
+    expect(terminal.output()).toContain(
+      [
+        "Standby Robot Activation\n",
+        "Active Robot Capacity: 16 hours\n",
+        "Client Work Requested: 21 hours\n",
+        "Shortfall Hours: 5\n",
+        "Active Robots Used:\n",
+        "Bravo: 1 - cost $2\n",
+        "Charlie: 1 - cost $3\n",
+        "Delta: 1 - cost $4\n",
+        "Active Charging Cost: $9\n",
+        "Additional Standby Robots Required:\n",
+        "Charlie: 1 - cost $3\n",
+        "Standby Charging Cost: $3\n",
+        "\n",
+        "Total Hours Provided: 21\n",
+        "Excess Hours: 0\n",
+        "Total Charging Cost: $12\n",
+      ].join(""),
     );
   });
 });

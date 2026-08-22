@@ -2,6 +2,8 @@ import type {
   AllocationOutcome,
   SingleClientAnalysis,
 } from "../application/single-client-comparison.js";
+import type { StandbyAllocation } from "../application/standby-activation.js";
+import type { FleetInventory } from "../domain/fleet-inventory.js";
 import { ROBOT_CATALOG, ROBOT_TYPES } from "../domain/robot-catalog.js";
 
 export function renderSingleClientAnalysis(
@@ -14,6 +16,48 @@ export function renderSingleClientAnalysis(
     "",
     ...renderComparison(analysis),
   ];
+}
+
+export function renderStandbyActivation(
+  result: StandbyAllocation,
+): readonly string[] {
+  const lines = [
+    "Standby Robot Activation",
+    `Active Robot Capacity: ${result.activeCapacityHours} hours`,
+    `Client Work Requested: ${result.allocation.requestedHours} hours`,
+    `Shortfall Hours: ${result.shortfallHours}`,
+    "Active Robots Used:",
+  ];
+  const activeRobotLines = renderRobotCosts(result.activeRobots);
+
+  lines.push(...(activeRobotLines.length > 0 ? activeRobotLines : ["None"]));
+  lines.push(
+    `Active Charging Cost: $${result.activeRobots.totalChargingCost}`,
+    "Additional Standby Robots Required:",
+    ...renderRobotCosts(result.standbyRobots),
+    `Standby Charging Cost: $${result.standbyChargingCost}`,
+    "",
+    `Total Hours Provided: ${result.allocation.providedHours}`,
+    `Excess Hours: ${result.allocation.excessHours}`,
+    `Total Charging Cost: $${result.allocation.chargingCost}`,
+  );
+
+  return lines;
+}
+
+function renderRobotCosts(inventory: FleetInventory): string[] {
+  const lines: string[] = [];
+
+  for (const type of ROBOT_TYPES) {
+    const count = inventory.count(type);
+
+    if (count > 0) {
+      const cost = count * ROBOT_CATALOG[type].chargingCost;
+      lines.push(`${ROBOT_CATALOG[type].label}: ${count} - cost $${cost}`);
+    }
+  }
+
+  return lines;
 }
 
 function renderCategoryDistribution(
