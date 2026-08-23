@@ -97,6 +97,7 @@ export class CategoryDistributionStrategy implements AllocationStrategy {
   }
 
   private score(candidate: Candidate): readonly number[] {
+    // Score order encodes the required objectives from highest priority to the deterministic category tie-break.
     return [
       candidate.allocation.excessHours,
       candidate.allocation.chargingCost,

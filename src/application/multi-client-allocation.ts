@@ -72,6 +72,7 @@ export class MultiClientAllocationService {
   public allocate(
     command: MultiClientAllocationCommand,
   ): MultiClientAllocationResult {
+    // Keep the original position so equal-hour clients retain their input order explicitly.
     const prioritizedClients = command.clients
       .map((client, originalIndex) => ({ client, originalIndex }))
       .sort(

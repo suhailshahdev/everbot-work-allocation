@@ -92,6 +92,7 @@ export class StandbyActivationService {
   }
 
   private createOnDemandAvailability(shortfallHours: number): FleetInventory {
+    // Each count is an independent search bound for unlimited on-demand standby supply.
     return FleetInventory.create({
       bravo: Math.ceil(shortfallHours / ROBOT_CATALOG.bravo.workingHours),
       charlie: Math.ceil(shortfallHours / ROBOT_CATALOG.charlie.workingHours),
