@@ -5,6 +5,7 @@ import type { WorkRequest } from "../domain/work-request.js";
 import type { AllocationStrategy } from "../strategies/allocation-strategy.js";
 import type { StandbyPolicy } from "./allocation-settings.js";
 import type { StandbyActivationService } from "./standby-activation.js";
+import type { RobotCatalog } from "../domain/robot-catalog.js";
 
 export interface ClientWorkRequest {
   readonly clientId: number;
@@ -38,13 +39,12 @@ export interface MultiClientAllocationCommand {
   readonly clients: readonly ClientWorkRequest[];
   readonly strategy: AllocationStrategy;
   readonly standbyPolicy?: StandbyPolicy;
+  readonly catalog: RobotCatalog;
 }
 
 export interface ActiveRobotUtilisationPercent {
   readonly average: number | null;
-  readonly bravo: number | null;
-  readonly charlie: number | null;
-  readonly delta: number | null;
+  readonly byRobotType: Readonly<Record<string, number | null>>;
 }
 
 export interface AllocationSummary {
@@ -72,6 +72,7 @@ export class MultiClientAllocationService {
   public allocate(
     command: MultiClientAllocationCommand,
   ): MultiClientAllocationResult {
+    const effectiveCatalog = command.catalog;
     // Keep the original position so equal-hour clients retain their input order explicitly.
     const prioritizedClients = command.clients
       .map((client, originalIndex) => ({ client, originalIndex }))
@@ -81,11 +82,13 @@ export class MultiClientAllocationService {
           left.originalIndex - right.originalIndex,
       );
     const allocations: ClientAllocation[] = [];
-    const emptyInventory = FleetInventory.create({
-      bravo: 0,
-      charlie: 0,
-      delta: 0,
-    });
+
+    const emptyCounts: Record<string, number> = {};
+    for (const robotType of Object.keys(effectiveCatalog)) {
+      emptyCounts[robotType] = 0;
+    }
+    const emptyInventory = FleetInventory.create(emptyCounts);
+
     let remainingActiveInventory = command.activeInventory;
     let activeRobotsUsed = emptyInventory;
     let standbyRobotsUsed = emptyInventory;
@@ -104,6 +107,7 @@ export class MultiClientAllocationService {
           client.request,
           command.strategy,
           command.standbyPolicy,
+          effectiveCatalog,
         );
 
         if (operational.status === "infeasible") {
@@ -161,6 +165,7 @@ export class MultiClientAllocationService {
         allocations,
         activeRobotsUsed,
         standbyRobotsUsed,
+        effectiveCatalog,
       ),
     };
   }
@@ -170,6 +175,7 @@ export class MultiClientAllocationService {
     allocations: readonly ClientAllocation[],
     activeRobotsUsed: FleetInventory,
     standbyRobotsUsed: FleetInventory,
+    catalog: RobotCatalog,
   ): AllocationSummary {
     const fulfilled = allocations.filter(
       (allocation): allocation is FulfilledClientAllocation =>
@@ -178,6 +184,15 @@ export class MultiClientAllocationService {
     const totalActiveRobotsUsed = activeRobotsUsed.totalRobots;
     const totalStandbyRobotsUsed = standbyRobotsUsed.totalRobots;
 
+    const utilisationByRobotType: Record<string, number | null> = {};
+
+    for (const robotType of Object.keys(catalog)) {
+      utilisationByRobotType[robotType] = this.calculateUtilisation(
+        activeRobotsUsed.count(robotType),
+        initialActiveInventory.count(robotType),
+      );
+    }
+
     return {
       totalClients: allocations.length,
       fulfilledClients: fulfilled.length,
@@ -185,7 +200,8 @@ export class MultiClientAllocationService {
       totalStandbyRobotsUsed,
       totalRobotsUsed: totalActiveRobotsUsed + totalStandbyRobotsUsed,
       totalChargingCost: fulfilled.reduce(
-        (total, allocation) => total + allocation.allocation.chargingCost,
+        (total, allocation) =>
+          total + allocation.allocation.calculateChargingCost(catalog),
         0,
       ),
       activeRobotUtilisationPercent: {
@@ -193,18 +209,7 @@ export class MultiClientAllocationService {
           totalActiveRobotsUsed,
           initialActiveInventory.totalRobots,
         ),
-        bravo: this.calculateUtilisation(
-          activeRobotsUsed.count("bravo"),
-          initialActiveInventory.count("bravo"),
-        ),
-        charlie: this.calculateUtilisation(
-          activeRobotsUsed.count("charlie"),
-          initialActiveInventory.count("charlie"),
-        ),
-        delta: this.calculateUtilisation(
-          activeRobotsUsed.count("delta"),
-          initialActiveInventory.count("delta"),
-        ),
+        byRobotType: utilisationByRobotType,
       },
     };
   }

@@ -11,6 +11,7 @@ import { WorkRequest } from "../../src/domain/work-request.js";
 import type { AllocationStrategy } from "../../src/strategies/allocation-strategy.js";
 import { CategoryDistributionStrategy } from "../../src/strategies/category-distribution-strategy.js";
 import { CostOptimizedStrategy } from "../../src/strategies/cost-optimized-strategy.js";
+import { TEST_ROBOT_CATALOG } from "../support/robot-catalog.js";
 
 const strategy = new CostOptimizedStrategy();
 const service = new MultiClientAllocationService(
@@ -26,13 +27,19 @@ function clients(...hours: number[]): ClientWorkRequest[] {
 
 describe("MultiClientAllocationService", () => {
   it("uses stable highest-hours priority and consumes one shared active inventory", () => {
-    const inventory = FleetInventory.create({ bravo: 4, charlie: 4, delta: 4 });
+    const inventory = FleetInventory.create({
+      alpha: 4,
+      bravo: 4,
+      charlie: 4,
+      delta: 4,
+    });
     const clientRequests = clients(12, 20, 20, 7);
 
     const result = service.allocate({
       activeInventory: inventory,
       clients: clientRequests,
       strategy,
+      catalog: TEST_ROBOT_CATALOG,
     });
 
     expect(result.policyName).toBe("Cost optimised");
@@ -58,31 +65,40 @@ describe("MultiClientAllocationService", () => {
     });
 
     expect(activeAssignments).toEqual([
-      { bravo: 0, charlie: 1, delta: 2 },
-      { bravo: 0, charlie: 1, delta: 2 },
-      { bravo: 4, charlie: 0, delta: 0 },
-      { bravo: 0, charlie: 2, delta: 0 },
+      { alpha: 1, bravo: 1, charlie: 0, delta: 2 },
+      { alpha: 1, bravo: 1, charlie: 0, delta: 2 },
+      { alpha: 1, bravo: 2, charlie: 1, delta: 0 },
+      { alpha: 0, bravo: 0, charlie: 2, delta: 0 },
     ]);
     expect(result.remainingActiveInventory.toRecord()).toEqual({
+      alpha: 1,
       bravo: 0,
-      charlie: 0,
+      charlie: 1,
       delta: 0,
     });
     expect(result.summary).toEqual({
       totalClients: 4,
       fulfilledClients: 4,
-      totalActiveRobotsUsed: 12,
+      totalActiveRobotsUsed: 14,
       totalStandbyRobotsUsed: 0,
-      totalRobotsUsed: 12,
+      totalRobotsUsed: 14,
       totalChargingCost: 36,
       activeRobotUtilisationPercent: {
-        average: 100,
-        bravo: 100,
-        charlie: 100,
-        delta: 100,
+        average: 87.5,
+        byRobotType: {
+          alpha: 75,
+          bravo: 100,
+          charlie: 75,
+          delta: 100,
+        },
       },
     });
-    expect(inventory.toRecord()).toEqual({ bravo: 4, charlie: 4, delta: 4 });
+    expect(inventory.toRecord()).toEqual({
+      alpha: 4,
+      bravo: 4,
+      charlie: 4,
+      delta: 4,
+    });
     expect(clientRequests.map((client) => client.clientId)).toEqual([
       1, 2, 3, 4,
     ]);
@@ -91,12 +107,14 @@ describe("MultiClientAllocationService", () => {
   it("activates standby per client after shared active capacity is consumed", () => {
     const result = service.allocate({
       activeInventory: FleetInventory.create({
+        alpha: 1,
         bravo: 1,
         charlie: 1,
         delta: 1,
       }),
       clients: clients(10, 21),
       strategy,
+      catalog: TEST_ROBOT_CATALOG,
     });
 
     expect(result.clients.map((client) => client.clientId)).toEqual([2, 1]);
@@ -105,7 +123,7 @@ describe("MultiClientAllocationService", () => {
       priority: 1,
       requestedHours: 21,
       status: "standby-activated",
-      shortfallHours: 5,
+      shortfallHours: 4,
     });
     expect(result.clients[1]).toMatchObject({
       clientId: 1,
@@ -125,45 +143,56 @@ describe("MultiClientAllocationService", () => {
     }
 
     expect(first.activeRobots.toRecord()).toEqual({
+      alpha: 1,
       bravo: 1,
       charlie: 1,
       delta: 1,
     });
     expect(first.standbyRobots.toRecord()).toEqual({
-      bravo: 0,
-      charlie: 1,
+      alpha: 1,
+      bravo: 1,
+      charlie: 0,
       delta: 0,
     });
-    expect(first.allocation.providedHours).toBe(21);
-    expect(first.allocation.excessHours).toBe(0);
-    expect(first.allocation.chargingCost).toBe(12);
+    expect(first.allocation.calculateProvidedHours(TEST_ROBOT_CATALOG)).toBe(
+      21,
+    );
+    expect(first.allocation.calculateExcessHours(TEST_ROBOT_CATALOG)).toBe(0);
+    expect(first.allocation.calculateChargingCost(TEST_ROBOT_CATALOG)).toBe(13);
 
     expect(second.activeRobots.toRecord()).toEqual({
+      alpha: 0,
       bravo: 0,
       charlie: 0,
       delta: 0,
     });
     expect(second.standbyRobots.toRecord()).toEqual({
+      alpha: 0,
       bravo: 0,
       charlie: 2,
       delta: 0,
     });
-    expect(second.allocation.providedHours).toBe(10);
-    expect(second.allocation.excessHours).toBe(0);
-    expect(second.allocation.chargingCost).toBe(6);
+    expect(second.allocation.calculateProvidedHours(TEST_ROBOT_CATALOG)).toBe(
+      10,
+    );
+    expect(second.allocation.calculateExcessHours(TEST_ROBOT_CATALOG)).toBe(0);
+    expect(second.allocation.calculateChargingCost(TEST_ROBOT_CATALOG)).toBe(6);
     expect(result.remainingActiveInventory.isEmpty).toBe(true);
     expect(result.summary).toEqual({
       totalClients: 2,
       fulfilledClients: 2,
-      totalActiveRobotsUsed: 3,
-      totalStandbyRobotsUsed: 3,
-      totalRobotsUsed: 6,
-      totalChargingCost: 18,
+      totalActiveRobotsUsed: 4,
+      totalStandbyRobotsUsed: 4,
+      totalRobotsUsed: 8,
+      totalChargingCost: 19,
       activeRobotUtilisationPercent: {
         average: 100,
-        bravo: 100,
-        charlie: 100,
-        delta: 100,
+        byRobotType: {
+          alpha: 100,
+          bravo: 100,
+          charlie: 100,
+          delta: 100,
+        },
       },
     });
   });
@@ -171,7 +200,7 @@ describe("MultiClientAllocationService", () => {
   it("records a failed high-priority client without consuming inventory, then continues", () => {
     const failingStrategy: AllocationStrategy = {
       name: "Deterministic failure",
-      allocate(inventory, request) {
+      allocate(inventory, request, catalog) {
         if (request.hours === 21) {
           throw new DomainError(
             "INSUFFICIENT_CAPACITY",
@@ -179,17 +208,19 @@ describe("MultiClientAllocationService", () => {
           );
         }
 
-        return strategy.allocate(inventory, request);
+        return strategy.allocate(inventory, request, catalog);
       },
     };
     const result = service.allocate({
       activeInventory: FleetInventory.create({
+        alpha: 2,
         bravo: 2,
         charlie: 3,
         delta: 2,
       }),
       clients: clients(10, 21),
       strategy: failingStrategy,
+      catalog: TEST_ROBOT_CATALOG,
     });
 
     expect(result.clients[0]).toMatchObject({
@@ -211,11 +242,13 @@ describe("MultiClientAllocationService", () => {
     }
 
     expect(second.activeRobots.toRecord()).toEqual({
+      alpha: 0,
       bravo: 0,
       charlie: 2,
       delta: 0,
     });
     expect(result.remainingActiveInventory.toRecord()).toEqual({
+      alpha: 2,
       bravo: 2,
       charlie: 1,
       delta: 2,
@@ -225,6 +258,7 @@ describe("MultiClientAllocationService", () => {
   it("uses the selected category-distribution strategy for the complete batch", () => {
     const result = service.allocate({
       activeInventory: FleetInventory.create({
+        alpha: 4,
         bravo: 4,
         charlie: 4,
         delta: 4,
@@ -232,6 +266,7 @@ describe("MultiClientAllocationService", () => {
       clients: clients(12, 7),
       strategy: new CategoryDistributionStrategy(),
       standbyPolicy: "automatic",
+      catalog: TEST_ROBOT_CATALOG,
     });
 
     expect(result.policyName).toBe("Category distribution");
@@ -249,10 +284,11 @@ describe("MultiClientAllocationService", () => {
     });
 
     expect(assignments).toEqual([
-      { bravo: 1, charlie: 1, delta: 1 },
-      { bravo: 1, charlie: 1, delta: 1 },
+      { alpha: 1, bravo: 1, charlie: 1, delta: 1 },
+      { alpha: 1, bravo: 1, charlie: 1, delta: 1 },
     ]);
     expect(result.remainingActiveInventory.toRecord()).toEqual({
+      alpha: 2,
       bravo: 2,
       charlie: 2,
       delta: 2,
@@ -262,6 +298,7 @@ describe("MultiClientAllocationService", () => {
   it("isolates a high-priority capacity failure when standby is disabled", () => {
     const result = service.allocate({
       activeInventory: FleetInventory.create({
+        alpha: 1,
         bravo: 1,
         charlie: 1,
         delta: 1,
@@ -269,6 +306,7 @@ describe("MultiClientAllocationService", () => {
       clients: clients(10, 21),
       strategy,
       standbyPolicy: "disabled",
+      catalog: TEST_ROBOT_CATALOG,
     });
 
     expect(result.clients[0]).toMatchObject({
@@ -290,11 +328,13 @@ describe("MultiClientAllocationService", () => {
     }
 
     expect(second.activeRobots.toRecord()).toEqual({
+      alpha: 0,
       bravo: 1,
       charlie: 0,
       delta: 1,
     });
     expect(result.remainingActiveInventory.toRecord()).toEqual({
+      alpha: 1,
       bravo: 0,
       charlie: 1,
       delta: 0,
@@ -307,10 +347,13 @@ describe("MultiClientAllocationService", () => {
       totalRobotsUsed: 2,
       totalChargingCost: 6,
       activeRobotUtilisationPercent: {
-        average: 66.7,
-        bravo: 100,
-        charlie: 0,
-        delta: 100,
+        average: 50,
+        byRobotType: {
+          alpha: 0,
+          bravo: 100,
+          charlie: 0,
+          delta: 100,
+        },
       },
     });
   });
@@ -318,44 +361,55 @@ describe("MultiClientAllocationService", () => {
   it("calculates overall utilisation as a weighted active-fleet ratio", () => {
     const result = service.allocate({
       activeInventory: FleetInventory.create({
+        alpha: 3,
         bravo: 3,
         charlie: 1,
         delta: 1,
       }),
       clients: clients(3),
       strategy,
+      catalog: TEST_ROBOT_CATALOG,
     });
 
     expect(result.summary.activeRobotUtilisationPercent).toEqual({
-      average: 20,
-      bravo: 33.3,
-      charlie: 0,
-      delta: 0,
+      average: 12.5,
+      byRobotType: {
+        alpha: 0,
+        bravo: 33.3,
+        charlie: 0,
+        delta: 0,
+      },
     });
   });
 
   it("keeps utilisation available when one category has no active robots", () => {
     const result = service.allocate({
       activeInventory: FleetInventory.create({
+        alpha: 0,
         bravo: 0,
         charlie: 1,
         delta: 1,
       }),
       clients: clients(5),
       strategy,
+      catalog: TEST_ROBOT_CATALOG,
     });
 
     expect(result.summary.activeRobotUtilisationPercent).toEqual({
       average: 50,
-      bravo: null,
-      charlie: 100,
-      delta: 0,
+      byRobotType: {
+        alpha: null,
+        bravo: null,
+        charlie: 100,
+        delta: 0,
+      },
     });
   });
 
   it("reports unavailable active utilisation for an entirely standby-funded batch", () => {
     const result = service.allocate({
       activeInventory: FleetInventory.create({
+        alpha: 0,
         bravo: 0,
         charlie: 0,
         delta: 0,
@@ -363,6 +417,7 @@ describe("MultiClientAllocationService", () => {
       clients: clients(6),
       strategy,
       standbyPolicy: "automatic",
+      catalog: TEST_ROBOT_CATALOG,
     });
 
     expect(result.summary).toEqual({
@@ -374,9 +429,12 @@ describe("MultiClientAllocationService", () => {
       totalChargingCost: 4,
       activeRobotUtilisationPercent: {
         average: null,
-        bravo: null,
-        charlie: null,
-        delta: null,
+        byRobotType: {
+          alpha: null,
+          bravo: null,
+          charlie: null,
+          delta: null,
+        },
       },
     });
   });

@@ -6,6 +6,10 @@ import { WorkRequest } from "../../src/domain/work-request.js";
 import type { AllocationStrategy } from "../../src/strategies/allocation-strategy.js";
 import { CategoryDistributionStrategy } from "../../src/strategies/category-distribution-strategy.js";
 import { CostOptimizedStrategy } from "../../src/strategies/cost-optimized-strategy.js";
+import {
+  TEST_ROBOT_CATALOG,
+  TEST_ROBOT_COUNTS,
+} from "../support/robot-catalog.js";
 
 const service = new SingleClientComparisonService(
   new CategoryDistributionStrategy(),
@@ -13,10 +17,11 @@ const service = new SingleClientComparisonService(
 );
 
 describe("SingleClientComparisonService", () => {
-  it("matches the challenge's $1 Level 1 versus Level 2 comparison", () => {
+  it("compares category distribution with cost optimisation", () => {
     const analysis = service.analyze(
-      FleetInventory.create({ bravo: 2, charlie: 3, delta: 2 }),
+      FleetInventory.create(TEST_ROBOT_COUNTS),
       WorkRequest.create(20),
+      TEST_ROBOT_CATALOG,
     );
 
     expect(analysis.categoryDistribution.status).toBe("allocated");
@@ -32,13 +37,14 @@ describe("SingleClientComparisonService", () => {
 
   it("explains when both strategies have the same charging cost", () => {
     const analysis = service.analyze(
-      FleetInventory.create({ bravo: 1, charlie: 3, delta: 1 }),
-      WorkRequest.create(14),
+      FleetInventory.create({ alpha: 1, bravo: 1, charlie: 1, delta: 1 }),
+      WorkRequest.create(17),
+      TEST_ROBOT_CATALOG,
     );
 
     expect(analysis.comparison).toEqual({
-      categoryDistributionCost: 9,
-      costOptimizedCost: 9,
+      categoryDistributionCost: 10,
+      costOptimizedCost: 10,
       costDifference: 0,
       insight: "Both strategies have the same charging cost.",
     });
@@ -46,8 +52,9 @@ describe("SingleClientComparisonService", () => {
 
   it("preserves a Level 1 failure while allowing Level 2 to succeed", () => {
     const analysis = service.analyze(
-      FleetInventory.create({ bravo: 2, charlie: 2, delta: 0 }),
+      FleetInventory.create({ alpha: 2, bravo: 2, charlie: 2, delta: 0 }),
       WorkRequest.create(8),
+      TEST_ROBOT_CATALOG,
     );
 
     expect(analysis.categoryDistribution).toMatchObject({
@@ -58,6 +65,7 @@ describe("SingleClientComparisonService", () => {
 
     if (analysis.costOptimized.status === "allocated") {
       expect(analysis.costOptimized.allocation.robots.toRecord()).toEqual({
+        alpha: 0,
         bravo: 1,
         charlie: 1,
         delta: 0,
@@ -69,8 +77,9 @@ describe("SingleClientComparisonService", () => {
 
   it("returns both failures when active capacity cannot satisfy the request", () => {
     const analysis = service.analyze(
-      FleetInventory.create({ bravo: 1, charlie: 1, delta: 1 }),
-      WorkRequest.create(17),
+      FleetInventory.create({ alpha: 1, bravo: 1, charlie: 1, delta: 1 }),
+      WorkRequest.create(18),
+      TEST_ROBOT_CATALOG,
     );
 
     expect(analysis.categoryDistribution).toMatchObject({
@@ -99,8 +108,9 @@ describe("SingleClientComparisonService", () => {
 
     expect(() =>
       brokenService.analyze(
-        FleetInventory.create({ bravo: 1, charlie: 1, delta: 1 }),
+        FleetInventory.create({ alpha: 1, bravo: 1, charlie: 1, delta: 1 }),
         WorkRequest.create(8),
+        TEST_ROBOT_CATALOG,
       ),
     ).toThrowError(unexpectedError);
   });

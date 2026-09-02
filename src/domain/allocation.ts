@@ -1,5 +1,6 @@
 import type { FleetInventory } from "./fleet-inventory.js";
 import type { WorkRequest } from "./work-request.js";
+import type { RobotCatalog } from "./robot-catalog.js";
 
 export class Allocation {
   public constructor(
@@ -11,15 +12,15 @@ export class Allocation {
     return this.request.hours;
   }
 
-  public get providedHours(): number {
-    return this.robots.totalHours;
+  public calculateProvidedHours(catalog: RobotCatalog) {
+    return this.robots.calculateTotalHours(catalog);
   }
 
-  public get excessHours(): number {
-    return this.providedHours - this.requestedHours;
+  public calculateExcessHours(catalog: RobotCatalog) {
+    return this.calculateProvidedHours(catalog) - this.requestedHours;
   }
 
-  public get chargingCost(): number {
-    return this.robots.totalChargingCost;
+  public calculateChargingCost(catalog: RobotCatalog) {
+    return this.robots.calculateTotalChargingCost(catalog);
   }
 }

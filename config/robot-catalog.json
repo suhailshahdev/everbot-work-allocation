@@ -1,0 +1,22 @@
+{
+    "alpha":{
+        "label": "Alpha",
+        "workingHours": 1,
+        "chargingCost": 1
+    },
+    "bravo":{
+        "label": "Bravo",
+        "workingHours": 3,
+        "chargingCost": 2
+    },
+    "charlie":{
+        "label": "Charlie",
+        "workingHours": 5,
+        "chargingCost": 3
+    },
+    "delta":{
+        "label": "Delta",
+        "workingHours": 8,
+        "chargingCost": 4
+    }
+}

@@ -1,6 +1,4 @@
-export const ROBOT_TYPES = ["bravo", "charlie", "delta"] as const;
-
-export type RobotType = (typeof ROBOT_TYPES)[number];
+// bravo is not available around 1st sept to 15 sept it can by any days should be configurable
 
 export interface RobotSpecification {
   readonly label: string;
@@ -8,21 +6,4 @@ export interface RobotSpecification {
   readonly chargingCost: number;
 }
 
-export const ROBOT_CATALOG: Readonly<Record<RobotType, RobotSpecification>> =
-  Object.freeze({
-    bravo: Object.freeze({
-      label: "Bravo",
-      workingHours: 3,
-      chargingCost: 2,
-    }),
-    charlie: Object.freeze({
-      label: "Charlie",
-      workingHours: 5,
-      chargingCost: 3,
-    }),
-    delta: Object.freeze({
-      label: "Delta",
-      workingHours: 8,
-      chargingCost: 4,
-    }),
-  });
+export type RobotCatalog = Readonly<Record<string, RobotSpecification>>;

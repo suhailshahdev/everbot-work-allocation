@@ -2,19 +2,25 @@ import { describe, expect, it } from "vitest";
 
 import type { DomainError } from "../../src/domain/errors.js";
 import { FleetInventory } from "../../src/domain/fleet-inventory.js";
+import {
+  TEST_ROBOT_CATALOG,
+  TEST_ROBOT_COUNTS,
+} from "../support/robot-catalog.js";
 
 describe("FleetInventory", () => {
   it("calculates robot count, working capacity, and charging cost", () => {
     const inventory = FleetInventory.create({
+      alpha: 2,
       bravo: 2,
       charlie: 3,
       delta: 2,
     });
 
-    expect(inventory.totalRobots).toBe(7);
-    expect(inventory.totalHours).toBe(37);
-    expect(inventory.totalChargingCost).toBe(21);
+    expect(inventory.totalRobots).toBe(9);
+    expect(inventory.calculateTotalHours(TEST_ROBOT_CATALOG)).toBe(39);
+    expect(inventory.calculateTotalChargingCost(TEST_ROBOT_CATALOG)).toBe(23);
     expect(inventory.toRecord()).toEqual({
+      alpha: 2,
       bravo: 2,
       charlie: 3,
       delta: 2,
@@ -22,19 +28,30 @@ describe("FleetInventory", () => {
   });
 
   it("reports empty and complete-category inventories", () => {
-    const empty = FleetInventory.create({ bravo: 0, charlie: 0, delta: 0 });
-    const complete = FleetInventory.create({ bravo: 1, charlie: 1, delta: 1 });
+    const empty = FleetInventory.create({
+      alpha: 0,
+      bravo: 0,
+      charlie: 0,
+      delta: 0,
+    });
+    const complete = FleetInventory.create({
+      alpha: 1,
+      bravo: 1,
+      charlie: 1,
+      delta: 1,
+    });
     const missingCategory = FleetInventory.create({
+      alpha: 1,
       bravo: 1,
       charlie: 0,
       delta: 1,
     });
 
     expect(empty.isEmpty).toBe(true);
-    expect(empty.hasEveryCategory).toBe(false);
+    expect(empty.hasEveryCategory(TEST_ROBOT_CATALOG)).toBe(false);
     expect(complete.isEmpty).toBe(false);
-    expect(complete.hasEveryCategory).toBe(true);
-    expect(missingCategory.hasEveryCategory).toBe(false);
+    expect(complete.hasEveryCategory(TEST_ROBOT_CATALOG)).toBe(true);
+    expect(missingCategory.hasEveryCategory(TEST_ROBOT_CATALOG)).toBe(false);
   });
 
   it.each([
@@ -85,36 +102,61 @@ describe("FleetInventory", () => {
   });
 
   it("does not expose mutable internal state", () => {
-    const source = { bravo: 1, charlie: 2, delta: 3 };
+    const source = { alpha: 4, bravo: 1, charlie: 2, delta: 3 };
     const inventory = FleetInventory.create(source);
 
     source.bravo = 99;
     const snapshot = inventory.toRecord();
     snapshot.charlie = 99;
 
-    expect(inventory.toRecord()).toEqual({ bravo: 1, charlie: 2, delta: 3 });
+    expect(inventory.toRecord()).toEqual({
+      alpha: 4,
+      bravo: 1,
+      charlie: 2,
+      delta: 3,
+    });
   });
 
   it("combines inventories without mutating either source", () => {
-    const active = FleetInventory.create({ bravo: 1, charlie: 1, delta: 1 });
-    const standby = FleetInventory.create({ bravo: 0, charlie: 1, delta: 0 });
+    const active = FleetInventory.create({ alpha: 2, bravo: 1, charlie: 1 });
+    const standby = FleetInventory.create({ bravo: 1, charlie: 1, delta: 1 });
 
     const combined = active.add(standby);
 
-    expect(combined.toRecord()).toEqual({ bravo: 1, charlie: 2, delta: 1 });
-    expect(active.toRecord()).toEqual({ bravo: 1, charlie: 1, delta: 1 });
-    expect(standby.toRecord()).toEqual({ bravo: 0, charlie: 1, delta: 0 });
+    expect(combined.toRecord()).toEqual({
+      alpha: 2,
+      bravo: 2,
+      charlie: 2,
+      delta: 1,
+    });
+    expect(active.toRecord()).toEqual({ alpha: 2, bravo: 1, charlie: 1 });
+    expect(standby.toRecord()).toEqual({ bravo: 1, charlie: 1, delta: 1 });
   });
 
   it("consumes assigned robots without mutating either source", () => {
-    const inventory = FleetInventory.create({ bravo: 2, charlie: 3, delta: 2 });
-    const assigned = FleetInventory.create({ bravo: 1, charlie: 1, delta: 2 });
+    const inventory = FleetInventory.create(TEST_ROBOT_COUNTS);
+    const assigned = FleetInventory.create({
+      alpha: 1,
+      bravo: 1,
+      charlie: 1,
+      delta: 2,
+    });
 
     const remaining = inventory.subtract(assigned);
 
-    expect(remaining.toRecord()).toEqual({ bravo: 1, charlie: 2, delta: 0 });
-    expect(inventory.toRecord()).toEqual({ bravo: 2, charlie: 3, delta: 2 });
-    expect(assigned.toRecord()).toEqual({ bravo: 1, charlie: 1, delta: 2 });
+    expect(remaining.toRecord()).toEqual({
+      alpha: 1,
+      bravo: 1,
+      charlie: 2,
+      delta: 0,
+    });
+    expect(inventory.toRecord()).toEqual(TEST_ROBOT_COUNTS);
+    expect(assigned.toRecord()).toEqual({
+      alpha: 1,
+      bravo: 1,
+      charlie: 1,
+      delta: 2,
+    });
   });
 
   it("rejects consuming more robots than are available", () => {
@@ -124,7 +166,7 @@ describe("FleetInventory", () => {
     expect(() => inventory.subtract(assigned)).toThrowError(
       expect.objectContaining<Partial<DomainError>>({
         code: "INSUFFICIENT_INVENTORY",
-        message: "Cannot consume more Bravo robots than are available.",
+        message: "Cannot consume more bravo robots than are available",
         details: {
           robotType: "bravo",
           available: 1,
@@ -132,5 +174,20 @@ describe("FleetInventory", () => {
         },
       }),
     );
+  });
+
+  it("reports zero for a robot type that is not recorded in the inventory", () => {
+    expect(FleetInventory.create({ alpha: 2 }).count("delta")).toBe(0);
+  });
+
+  it("rejects capacity calculations for an inventory type missing from the catalogue", () => {
+    const inventory = FleetInventory.create({ unknown: 1 });
+
+    expect(() =>
+      inventory.calculateTotalHours(TEST_ROBOT_CATALOG),
+    ).toThrowError("Unknown robot type: unknown");
+    expect(() =>
+      inventory.calculateTotalChargingCost(TEST_ROBOT_CATALOG),
+    ).toThrowError("Unknown robot type: unknown");
   });
 });

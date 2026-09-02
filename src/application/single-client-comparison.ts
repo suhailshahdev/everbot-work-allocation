@@ -3,6 +3,7 @@ import { DomainError } from "../domain/errors.js";
 import type { FleetInventory } from "../domain/fleet-inventory.js";
 import type { WorkRequest } from "../domain/work-request.js";
 import type { AllocationStrategy } from "../strategies/allocation-strategy.js";
+import type { RobotCatalog } from "../domain/robot-catalog.js";
 
 export interface AllocatedOutcome {
   readonly status: "allocated";
@@ -38,18 +39,25 @@ export class SingleClientComparisonService {
   public analyze(
     inventory: FleetInventory,
     request: WorkRequest,
+    catalog: RobotCatalog,
   ): SingleClientAnalysis {
     const categoryDistribution = this.evaluate(
       this.categoryDistribution,
       inventory,
       request,
+      catalog,
     );
-    const costOptimized = this.evaluate(this.costOptimized, inventory, request);
+    const costOptimized = this.evaluate(
+      this.costOptimized,
+      inventory,
+      request,
+      catalog,
+    );
 
     return {
       categoryDistribution,
       costOptimized,
-      comparison: this.compare(categoryDistribution, costOptimized),
+      comparison: this.compare(categoryDistribution, costOptimized, catalog),
     };
   }
 
@@ -57,11 +65,12 @@ export class SingleClientComparisonService {
     strategy: AllocationStrategy,
     inventory: FleetInventory,
     request: WorkRequest,
+    catalog: RobotCatalog,
   ): AllocationOutcome {
     try {
       return {
         status: "allocated",
-        allocation: strategy.allocate(inventory, request),
+        allocation: strategy.allocate(inventory, request, catalog),
       };
     } catch (error: unknown) {
       if (error instanceof DomainError) {
@@ -75,6 +84,7 @@ export class SingleClientComparisonService {
   private compare(
     categoryDistribution: AllocationOutcome,
     costOptimized: AllocationOutcome,
+    catalog: RobotCatalog,
   ): StrategyCostComparison | undefined {
     if (
       categoryDistribution.status !== "allocated" ||
@@ -84,8 +94,9 @@ export class SingleClientComparisonService {
     }
 
     const categoryDistributionCost =
-      categoryDistribution.allocation.chargingCost;
-    const costOptimizedCost = costOptimized.allocation.chargingCost;
+      categoryDistribution.allocation.calculateChargingCost(catalog);
+    const costOptimizedCost =
+      costOptimized.allocation.calculateChargingCost(catalog);
     const costDifference = categoryDistributionCost - costOptimizedCost;
 
     return {

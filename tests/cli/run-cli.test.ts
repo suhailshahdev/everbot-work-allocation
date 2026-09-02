@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Terminal } from "../../src/cli/interactive-allocation.js";
 import { runCli } from "../../src/cli/run-cli.js";
@@ -53,6 +53,15 @@ class InterruptedTerminal implements Terminal {
 }
 
 describe("runCli", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 2, 12));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("shows the defaults and runs two allocations in one session", async () => {
     const terminal = new FakeTerminal([
       "",

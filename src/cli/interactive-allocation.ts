@@ -23,6 +23,10 @@ import {
   PLAIN_TERMINAL_STYLES,
   type TerminalStyles,
 } from "./terminal-styles.js";
+import { loadRobotCatalog } from "../infrastructure/robot-catalog-loader.js";
+import type { RobotCatalog } from "../domain/robot-catalog.js";
+import { loadRobotDowntimes } from "../infrastructure/robot-downtime-loader.js";
+import { getAvailableRobotCatalog } from "../domain/robot-availability.js";
 
 export interface Terminal {
   writeLine(message?: string): void;
@@ -43,38 +47,56 @@ export async function runInteractiveAllocation(
   settings: AllocationSettings = DEFAULT_ALLOCATION_SETTINGS,
   styles: TerminalStyles = PLAIN_TERMINAL_STYLES,
 ): Promise<0 | 1> {
+  const catalog = loadRobotCatalog();
+  const downtimes = loadRobotDowntimes();
+
+  const allocationDate = getTodayDate();
+
+  const availableCatalog = getAvailableRobotCatalog(
+    catalog,
+    allocationDate,
+    downtimes,
+  );
+
+  terminal.writeLine();
   terminal.writeLine(styles.heading("Enter number of robots available:"));
 
-  const counts: RobotCounts = {
-    bravo: await askRobotCount(terminal, "Bravo", styles),
-    charlie: await askRobotCount(terminal, "Charlie", styles),
-    delta: await askRobotCount(terminal, "Delta", styles),
-  };
+  const counts: RobotCounts = {};
+
+  for (const [robotType, specification] of Object.entries(availableCatalog)) {
+    counts[robotType] = await askRobotCount(
+      terminal,
+      specification.label,
+      styles,
+    );
+  }
 
   terminal.writeLine();
   const clientWorkHours = await askClientWorkHours(terminal, styles);
   terminal.writeLine();
 
   try {
-    const inventory = FleetInventory.create(counts);
+    const availableInventory = FleetInventory.create(counts);
     const [singleWorkHours] = clientWorkHours;
 
     if (clientWorkHours.length === 1 && singleWorkHours !== undefined) {
       return runSingleClient(
         terminal,
-        inventory,
+        availableInventory,
         singleWorkHours,
         settings,
         styles,
+        availableCatalog,
       );
     }
 
     return runMultipleClients(
       terminal,
-      inventory,
+      availableInventory,
       clientWorkHours,
       settings,
       styles,
+      availableCatalog,
     );
   } catch (error: unknown) {
     if (error instanceof DomainError) {
@@ -92,24 +114,26 @@ function runSingleClient(
   workHours: number,
   settings: AllocationSettings,
   styles: TerminalStyles,
+  catalog: RobotCatalog,
 ): 0 | 1 {
   const request = WorkRequest.create(workHours);
-  const analysis = comparisonService.analyze(inventory, request);
+  const analysis = comparisonService.analyze(inventory, request, catalog);
   const operational = standbyService.allocate(
     inventory,
     request,
     costOptimized,
     settings.standbyPolicy,
+    catalog,
   );
 
-  for (const line of renderSingleClientAnalysis(analysis, styles)) {
+  for (const line of renderSingleClientAnalysis(analysis, styles, catalog)) {
     terminal.writeLine(line);
   }
 
   if (operational.status === "standby-activated") {
     terminal.writeLine();
 
-    for (const line of renderStandbyActivation(operational, styles)) {
+    for (const line of renderStandbyActivation(operational, styles, catalog)) {
       terminal.writeLine(line);
     }
   }
@@ -123,6 +147,7 @@ function runMultipleClients(
   clientWorkHours: readonly number[],
   settings: AllocationSettings,
   styles: TerminalStyles,
+  catalog: RobotCatalog,
 ): 0 | 1 {
   const clients: ClientWorkRequest[] = clientWorkHours.map(
     (workHours, index) => ({
@@ -138,9 +163,10 @@ function runMultipleClients(
         ? categoryDistribution
         : costOptimized,
     standbyPolicy: settings.standbyPolicy,
+    catalog,
   });
 
-  for (const line of renderMultiClientAllocation(result, styles)) {
+  for (const line of renderMultiClientAllocation(result, styles, catalog)) {
     terminal.writeLine(line);
   }
 
@@ -185,6 +211,15 @@ async function askClientWorkHours(
       styles.error("Error: Work hours must be a positive integer."),
     );
   }
+}
+
+function getTodayDate(): string {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function parseInteger(rawValue: string): number | undefined {

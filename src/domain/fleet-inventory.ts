@@ -1,11 +1,7 @@
 import { DomainError } from "./errors.js";
-import { ROBOT_CATALOG, ROBOT_TYPES, type RobotType } from "./robot-catalog.js";
+import type { RobotCatalog } from "./robot-catalog.js";
 
-export interface RobotCounts {
-  bravo: number;
-  charlie: number;
-  delta: number;
-}
+export type RobotCounts = Record<string, number>;
 
 export class FleetInventory {
   readonly #counts: Readonly<RobotCounts>;
@@ -15,14 +11,12 @@ export class FleetInventory {
   }
 
   public static create(counts: RobotCounts): FleetInventory {
-    for (const type of ROBOT_TYPES) {
-      const count = counts[type];
-
+    for (const [robotType, count] of Object.entries(counts)) {
       if (!Number.isSafeInteger(count) || count < 0) {
         throw new DomainError(
           "INVALID_ROBOT_COUNT",
           "Robot counts must be non-negative integers.",
-          { robotType: type, value: count },
+          { robotType, value: count },
         );
       }
     }
@@ -30,65 +24,90 @@ export class FleetInventory {
     return new FleetInventory(counts);
   }
 
-  public count(type: RobotType): number {
-    return this.#counts[type];
+  public count(type: string): number {
+    return this.#counts[type] ?? 0;
   }
 
   public get totalRobots(): number {
-    return ROBOT_TYPES.reduce((total, type) => total + this.count(type), 0);
-  }
-
-  public get totalHours(): number {
-    return ROBOT_TYPES.reduce(
-      (total, type) =>
-        total + this.count(type) * ROBOT_CATALOG[type].workingHours,
+    return Object.values(this.#counts).reduce(
+      (total, count) => total + count,
       0,
     );
   }
 
-  public get totalChargingCost(): number {
-    return ROBOT_TYPES.reduce(
-      (total, type) =>
-        total + this.count(type) * ROBOT_CATALOG[type].chargingCost,
-      0,
-    );
+  public calculateTotalHours(catalog: RobotCatalog): number {
+    return Object.entries(this.#counts).reduce((total, [robotType, count]) => {
+      const specification = catalog[robotType];
+
+      if (!specification) {
+        throw new Error(`Unknown robot type: ${robotType}`);
+      }
+
+      return total + count * specification.workingHours;
+    }, 0);
+  }
+
+  public calculateTotalChargingCost(catalog: RobotCatalog): number {
+    return Object.entries(this.#counts).reduce((total, [robotType, count]) => {
+      const specification = catalog[robotType];
+
+      if (!specification) {
+        throw new Error(`Unknown robot type: ${robotType}`);
+      }
+
+      return total + count * specification.chargingCost;
+    }, 0);
   }
 
   public get isEmpty(): boolean {
     return this.totalRobots === 0;
   }
 
-  public get hasEveryCategory(): boolean {
-    return ROBOT_TYPES.every((type) => this.count(type) > 0);
+  public hasEveryCategory(catalog: RobotCatalog): boolean {
+    return Object.keys(catalog).every((robotType) => this.count(robotType) > 0);
   }
 
   public add(other: FleetInventory): FleetInventory {
-    return FleetInventory.create({
-      bravo: this.count("bravo") + other.count("bravo"),
-      charlie: this.count("charlie") + other.count("charlie"),
-      delta: this.count("delta") + other.count("delta"),
-    });
+    const robotTypes = new Set([
+      ...Object.keys(this.#counts),
+      ...Object.keys(other.#counts),
+    ]);
+
+    const combined: RobotCounts = {};
+
+    for (const robotType of robotTypes) {
+      combined[robotType] = this.count(robotType) + other.count(robotType);
+    }
+
+    return FleetInventory.create(combined);
   }
 
   public subtract(assigned: FleetInventory): FleetInventory {
-    const remaining: RobotCounts = {
-      bravo: this.count("bravo") - assigned.count("bravo"),
-      charlie: this.count("charlie") - assigned.count("charlie"),
-      delta: this.count("delta") - assigned.count("delta"),
-    };
+    const robotTypes = new Set([
+      ...Object.keys(this.#counts),
+      ...Object.keys(assigned.#counts),
+    ]);
 
-    for (const type of ROBOT_TYPES) {
-      if (remaining[type] < 0) {
+    const remaining: RobotCounts = {};
+
+    for (const robotType of robotTypes) {
+      const available = this.count(robotType);
+
+      const requested = assigned.count(robotType);
+
+      if (requested > available) {
         throw new DomainError(
           "INSUFFICIENT_INVENTORY",
-          `Cannot consume more ${ROBOT_CATALOG[type].label} robots than are available.`,
+          `Cannot consume more ${robotType} robots than are available`,
           {
-            robotType: type,
-            available: this.count(type),
-            requested: assigned.count(type),
+            robotType,
+            available,
+            requested,
           },
         );
       }
+
+      remaining[robotType] = available - requested;
     }
 
     return FleetInventory.create(remaining);

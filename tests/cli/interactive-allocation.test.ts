@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AllocationSettings } from "../../src/application/allocation-settings.js";
 import {
@@ -36,7 +36,16 @@ class FakeTerminal implements Terminal {
 }
 
 describe("runInteractiveAllocation", () => {
-  it("renders the challenge's 16-hour example", async () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 2, 12));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("renders an allocation using the robot types available on the allocation date", async () => {
     const terminal = new FakeTerminal(["2", "3", "2", "16"]);
 
     const exitCode = await runInteractiveAllocation(terminal);
@@ -44,8 +53,9 @@ describe("runInteractiveAllocation", () => {
     expect(exitCode).toBe(0);
     expect(terminal.output()).toBe(
       [
+        "\n",
         "Enter number of robots available:\n",
-        "  Bravo: 2\n",
+        "  Alpha: 2\n",
         "  Charlie: 3\n",
         "  Delta: 2\n",
         "\n",
@@ -53,11 +63,11 @@ describe("runInteractiveAllocation", () => {
         "16\n",
         "\n",
         "Robot Assignment\n",
-        "  Bravo: 1\n",
-        "  Charlie: 1\n",
+        "  Alpha: 1\n",
+        "  Charlie: 2\n",
         "  Delta: 1\n",
         "\n",
-        "  Total Work Hours Provided: 16\n",
+        "  Total Work Hours Provided: 19\n",
         "  Client Work Hours Requested: 16\n",
         "\n",
         "Cost Optimized Allocation\n",
@@ -67,12 +77,12 @@ describe("runInteractiveAllocation", () => {
         "  Total Charging Cost: $8\n",
         "\n",
         "Level 1 vs Level 2 Comparison\n",
-        "  Level 1 Cost: $9\n",
+        "  Level 1 Cost: $11\n",
         "  Level 2 Cost: $8\n",
-        "  Cost Difference: $1\n",
+        "  Cost Difference: $3\n",
         "\n",
         "  Insight:\n",
-        "    Level 1 strategy resulted in $1 additional cost due to mandatory usage of multiple robot categories.\n",
+        "    Level 1 strategy resulted in $3 additional cost due to mandatory usage of multiple robot categories.\n",
       ].join(""),
     );
   });
@@ -86,9 +96,9 @@ describe("runInteractiveAllocation", () => {
 
       expect(exitCode).toBe(0);
       expect(terminal.output()).toContain(
-        `  Bravo: ${invalidCount}\n` +
+        `  Alpha: ${invalidCount}\n` +
           "Error: Robot counts must be non-negative integers.\n" +
-          "  Bravo: 2\n",
+          "  Alpha: 2\n",
       );
     },
   );
@@ -123,8 +133,8 @@ describe("runInteractiveAllocation", () => {
     );
     expect(terminal.output()).toContain(
       "Cost Optimized Allocation\n" +
-        "  Bravo: 2\n" +
-        "  Charlie: 2\n" +
+        "  Alpha: 1\n" +
+        "  Charlie: 3\n" +
         "\n" +
         "  Total Hours Provided: 16\n" +
         "  Total Charging Cost: $10\n",
@@ -158,7 +168,8 @@ describe("runInteractiveAllocation", () => {
         "    None\n",
         "  Active Charging Cost: $0\n",
         "  Additional Standby Robots Required:\n",
-        "    Bravo: 2 - cost $4\n",
+        "    Alpha: 1 - cost $1\n",
+        "    Charlie: 1 - cost $3\n",
         "  Standby Charging Cost: $4\n",
         "\n",
         "  Total Hours Provided: 6\n",
@@ -168,7 +179,7 @@ describe("runInteractiveAllocation", () => {
     );
   });
 
-  it("recovers the challenge's active-capacity shortfall with standby robots", async () => {
+  it("recovers an active-capacity shortfall with an available standby type", async () => {
     const terminal = new FakeTerminal(["1", "1", "1", "21"]);
 
     const exitCode = await runInteractiveAllocation(terminal);
@@ -189,20 +200,20 @@ describe("runInteractiveAllocation", () => {
     expect(terminal.output()).toContain(
       [
         "Standby Robot Activation\n",
-        "  Active Robot Capacity: 16 hours\n",
+        "  Active Robot Capacity: 14 hours\n",
         "  Client Work Requested: 21 hours\n",
-        "  Shortfall Hours: 5\n",
+        "  Shortfall Hours: 7\n",
         "  Active Robots Used:\n",
-        "    Bravo: 1 - cost $2\n",
+        "    Alpha: 1 - cost $1\n",
         "    Charlie: 1 - cost $3\n",
         "    Delta: 1 - cost $4\n",
-        "  Active Charging Cost: $9\n",
+        "  Active Charging Cost: $8\n",
         "  Additional Standby Robots Required:\n",
-        "    Charlie: 1 - cost $3\n",
-        "  Standby Charging Cost: $3\n",
+        "    Delta: 1 - cost $4\n",
+        "  Standby Charging Cost: $4\n",
         "\n",
-        "  Total Hours Provided: 21\n",
-        "  Excess Hours: 0\n",
+        "  Total Hours Provided: 22\n",
+        "  Excess Hours: 1\n",
         "  Total Charging Cost: $12\n",
       ].join(""),
     );
@@ -252,16 +263,16 @@ describe("runInteractiveAllocation", () => {
         "  Status: Standby activated\n",
         "  Requested Hours: 17\n",
         "  Active Robots:\n",
-        "    Bravo: 2\n",
+        "    Alpha: 2\n",
         "    Charlie: 2\n",
-        "  Active Charging Cost: $10\n",
+        "  Active Charging Cost: $8\n",
         "  Standby Robots:\n",
-        "    Bravo: 1\n",
-        "  Standby Charging Cost: $2\n",
-        "  Shortfall Hours: 1\n",
-        "  Total Hours Provided: 19\n",
-        "  Excess Hours: 2\n",
-        "  Total Charging Cost: $12\n",
+        "    Charlie: 1\n",
+        "  Standby Charging Cost: $3\n",
+        "  Shortfall Hours: 5\n",
+        "  Total Hours Provided: 17\n",
+        "  Excess Hours: 0\n",
+        "  Total Charging Cost: $11\n",
       ].join(""),
     );
     expect(terminal.output()).not.toContain("Level 1 vs Level 2 Comparison");
@@ -278,13 +289,13 @@ describe("runInteractiveAllocation", () => {
         "  Total Robots Used: 14\n",
         "\n",
         "Cost\n",
-        "  Total Charging Cost: $44\n",
+        "  Total Charging Cost: $43\n",
         "\n",
         "Active Fleet Utilisation\n",
         "  Average: 100%\n",
-        "  Bravo: 100%\n",
-        "  Charlie: 100%\n",
-        "  Delta: 100%\n",
+        "Alpha: 100%\n",
+        "Charlie: 100%\n",
+        "Delta: 100%\n",
       ].join(""),
     );
   });
@@ -304,17 +315,17 @@ describe("runInteractiveAllocation", () => {
         "\n",
         "Robot Usage\n",
         "  Active: 0\n",
-        "  Standby: 3\n",
-        "  Total Robots Used: 3\n",
+        "  Standby: 5\n",
+        "  Total Robots Used: 5\n",
         "\n",
         "Cost\n",
-        "  Total Charging Cost: $6\n",
+        "  Total Charging Cost: $7\n",
         "\n",
         "Active Fleet Utilisation\n",
         "  Average: N/A\n",
-        "  Bravo: N/A\n",
-        "  Charlie: N/A\n",
-        "  Delta: N/A\n",
+        "Alpha: N/A\n",
+        "Charlie: N/A\n",
+        "Delta: N/A\n",
       ].join(""),
     );
   });
@@ -347,6 +358,24 @@ describe("runInteractiveAllocation", () => {
     expect(terminal.output()).not.toContain("Standby Robot Activation");
     expect(terminal.output()).toContain(
       "  Error: Insufficient robot capacity to complete the requested work.\n",
+    );
+  });
+
+  it("prompts for every configured robot type after downtime ends", async () => {
+    vi.setSystemTime(new Date(2026, 8, 4, 12));
+    const terminal = new FakeTerminal(["1", "1", "1", "1", "17"]);
+
+    const exitCode = await runInteractiveAllocation(terminal);
+
+    expect(exitCode).toBe(0);
+    expect(terminal.output()).toContain(
+      [
+        "Enter number of robots available:\n",
+        "  Alpha: 1\n",
+        "  Bravo: 1\n",
+        "  Charlie: 1\n",
+        "  Delta: 1\n",
+      ].join(""),
     );
   });
 });

@@ -5,7 +5,7 @@ import type {
 import type { MultiClientAllocationResult } from "../application/multi-client-allocation.js";
 import type { StandbyAllocation } from "../application/standby-activation.js";
 import type { FleetInventory } from "../domain/fleet-inventory.js";
-import { ROBOT_CATALOG, ROBOT_TYPES } from "../domain/robot-catalog.js";
+import type { RobotCatalog } from "../domain/robot-catalog.js";
 import {
   PLAIN_TERMINAL_STYLES,
   type TerminalStyles,
@@ -14,11 +14,16 @@ import {
 export function renderSingleClientAnalysis(
   analysis: SingleClientAnalysis,
   styles: TerminalStyles = PLAIN_TERMINAL_STYLES,
+  catalog: RobotCatalog,
 ): readonly string[] {
   return [
-    ...renderCategoryDistribution(analysis.categoryDistribution, styles),
+    ...renderCategoryDistribution(
+      analysis.categoryDistribution,
+      styles,
+      catalog,
+    ),
     "",
-    ...renderCostOptimized(analysis.costOptimized, styles),
+    ...renderCostOptimized(analysis.costOptimized, styles, catalog),
     "",
     ...renderComparison(analysis, styles),
   ];
@@ -27,6 +32,7 @@ export function renderSingleClientAnalysis(
 export function renderStandbyActivation(
   result: StandbyAllocation,
   styles: TerminalStyles = PLAIN_TERMINAL_STYLES,
+  catalog: RobotCatalog,
 ): readonly string[] {
   const lines = [
     styles.heading("Standby Robot Activation"),
@@ -43,7 +49,12 @@ export function renderStandbyActivation(
     metric("Shortfall Hours", result.shortfallHours, styles),
     `  ${styles.accent("Active Robots Used:")}`,
   ];
-  const activeRobotLines = renderRobotCosts(result.activeRobots, styles, 4);
+  const activeRobotLines = renderRobotCosts(
+    result.activeRobots,
+    styles,
+    catalog,
+    4,
+  );
 
   lines.push(
     ...(activeRobotLines.length > 0
@@ -53,16 +64,28 @@ export function renderStandbyActivation(
   lines.push(
     metric(
       "Active Charging Cost",
-      `$${result.activeRobots.totalChargingCost}`,
+      `$${result.activeRobots.calculateTotalChargingCost(catalog)}`,
       styles,
     ),
     `  ${styles.accent("Additional Standby Robots Required:")}`,
-    ...renderRobotCosts(result.standbyRobots, styles, 4),
+    ...renderRobotCosts(result.standbyRobots, styles, catalog, 4),
     metric("Standby Charging Cost", `$${result.standbyChargingCost}`, styles),
     "",
-    metric("Total Hours Provided", result.allocation.providedHours, styles),
-    metric("Excess Hours", result.allocation.excessHours, styles),
-    metric("Total Charging Cost", `$${result.allocation.chargingCost}`, styles),
+    metric(
+      "Total Hours Provided",
+      result.allocation.calculateProvidedHours(catalog),
+      styles,
+    ),
+    metric(
+      "Excess Hours",
+      result.allocation.calculateExcessHours(catalog),
+      styles,
+    ),
+    metric(
+      "Total Charging Cost",
+      `$${result.allocation.calculateChargingCost(catalog)}`,
+      styles,
+    ),
   );
 
   return lines;
@@ -71,6 +94,7 @@ export function renderStandbyActivation(
 export function renderMultiClientAllocation(
   result: MultiClientAllocationResult,
   styles: TerminalStyles = PLAIN_TERMINAL_STYLES,
+  catalog: RobotCatalog,
 ): readonly string[] {
   const lines = [
     styles.heading("Multi-Client Allocation"),
@@ -98,10 +122,16 @@ export function renderMultiClientAllocation(
       continue;
     }
 
-    const activeRobotLines = renderRobotCounts(client.activeRobots, styles, 4);
+    const activeRobotLines = renderRobotCounts(
+      client.activeRobots,
+      styles,
+      catalog,
+      4,
+    );
     const standbyRobotLines = renderRobotCounts(
       client.standbyRobots,
       styles,
+      catalog,
       4,
     );
     const status =
@@ -118,7 +148,7 @@ export function renderMultiClientAllocation(
         : [`    ${styles.muted("None")}`]),
       metric(
         "Active Charging Cost",
-        `$${client.activeRobots.totalChargingCost}`,
+        `$${client.activeRobots.calculateTotalChargingCost(catalog)}`,
         styles,
       ),
       `  ${styles.accent("Standby Robots:")}`,
@@ -127,21 +157,36 @@ export function renderMultiClientAllocation(
         : [`    ${styles.muted("None")}`]),
       metric(
         "Standby Charging Cost",
-        `$${client.standbyRobots.totalChargingCost}`,
+        `$${client.standbyRobots.calculateTotalChargingCost(catalog)}`,
         styles,
       ),
       metric("Shortfall Hours", client.shortfallHours, styles),
-      metric("Total Hours Provided", client.allocation.providedHours, styles),
-      metric("Excess Hours", client.allocation.excessHours, styles),
+      metric(
+        "Total Hours Provided",
+        client.allocation.calculateProvidedHours(catalog),
+        styles,
+      ),
+      metric(
+        "Excess Hours",
+        client.allocation.calculateExcessHours(catalog),
+        styles,
+      ),
       metric(
         "Total Charging Cost",
-        `$${client.allocation.chargingCost}`,
+        `$${client.allocation.calculateChargingCost(catalog)}`,
         styles,
       ),
     );
   }
 
   const utilisation = result.summary.activeRobotUtilisationPercent;
+  const utilisationLines = Object.entries(utilisation.byRobotType).map(
+    ([robotType, value]) => {
+      const specification = catalog[robotType];
+      const label = specification?.label ?? robotType;
+      return `${label}: ${formatUtilisation(value, styles)}`;
+    },
+  );
   lines.push(
     "",
     styles.heading("Allocation Summary"),
@@ -159,9 +204,7 @@ export function renderMultiClientAllocation(
     "",
     styles.accent("Active Fleet Utilisation"),
     `  Average: ${formatUtilisation(utilisation.average, styles)}`,
-    `  Bravo: ${formatUtilisation(utilisation.bravo, styles)}`,
-    `  Charlie: ${formatUtilisation(utilisation.charlie, styles)}`,
-    `  Delta: ${formatUtilisation(utilisation.delta, styles)}`,
+    ...utilisationLines,
   );
 
   return lines;
@@ -177,17 +220,22 @@ function formatUtilisation(
 function renderRobotCounts(
   inventory: FleetInventory,
   styles: TerminalStyles,
+  catalog: RobotCatalog,
   indentation = 0,
 ): string[] {
   const lines: string[] = [];
   const prefix = " ".repeat(indentation);
 
-  for (const type of ROBOT_TYPES) {
-    const count = inventory.count(type);
+  for (const robotType of Object.keys(catalog)) {
+    const specification = catalog[robotType];
+
+    if (!specification) continue;
+
+    const count = inventory.count(robotType);
 
     if (count > 0) {
       lines.push(
-        `${prefix}${ROBOT_CATALOG[type].label}: ${styles.value(String(count))}`,
+        `${prefix}${specification.label}: ${styles.value(String(count))}`,
       );
     }
   }
@@ -198,18 +246,26 @@ function renderRobotCounts(
 function renderRobotCosts(
   inventory: FleetInventory,
   styles: TerminalStyles,
+  catalog: RobotCatalog,
   indentation = 0,
 ): string[] {
   const lines: string[] = [];
   const prefix = " ".repeat(indentation);
 
-  for (const type of ROBOT_TYPES) {
-    const count = inventory.count(type);
+  for (const robotType of Object.keys(catalog)) {
+    const specification = catalog[robotType];
+
+    if (!specification) {
+      continue;
+    }
+
+    const count = inventory.count(robotType);
 
     if (count > 0) {
-      const cost = count * ROBOT_CATALOG[type].chargingCost;
+      const cost = count * specification.chargingCost;
+
       lines.push(
-        `${prefix}${ROBOT_CATALOG[type].label}: ${styles.value(
+        `${prefix}${specification.label}: ${styles.value(
           `${count} - cost $${cost}`,
         )}`,
       );
@@ -222,6 +278,7 @@ function renderRobotCosts(
 function renderCategoryDistribution(
   outcome: AllocationOutcome,
   styles: TerminalStyles,
+  catalog: RobotCatalog,
 ): readonly string[] {
   const lines = [styles.heading("Robot Assignment")];
 
@@ -229,15 +286,18 @@ function renderCategoryDistribution(
     return [...lines, `  ${styles.error(`Error: ${outcome.error.message}`)}`];
   }
 
-  const counts = outcome.allocation.robots.toRecord();
+  const robotLines = renderRobotCounts(
+    outcome.allocation.robots,
+    styles,
+    catalog,
+    2,
+  );
   lines.push(
-    `  Bravo: ${styles.value(String(counts.bravo))}`,
-    `  Charlie: ${styles.value(String(counts.charlie))}`,
-    `  Delta: ${styles.value(String(counts.delta))}`,
+    ...robotLines,
     "",
     metric(
       "Total Work Hours Provided",
-      outcome.allocation.providedHours,
+      outcome.allocation.calculateProvidedHours(catalog),
       styles,
     ),
     metric(
@@ -253,6 +313,7 @@ function renderCategoryDistribution(
 function renderCostOptimized(
   outcome: AllocationOutcome,
   styles: TerminalStyles,
+  catalog: RobotCatalog,
 ): readonly string[] {
   const lines = [styles.heading("Cost Optimized Allocation")];
 
@@ -260,22 +321,20 @@ function renderCostOptimized(
     return [...lines, `  ${styles.error(`Error: ${outcome.error.message}`)}`];
   }
 
-  for (const type of ROBOT_TYPES) {
-    const count = outcome.allocation.robots.count(type);
-
-    if (count > 0) {
-      lines.push(
-        `  ${ROBOT_CATALOG[type].label}: ${styles.value(String(count))}`,
-      );
-    }
-  }
+  lines.push(
+    ...renderRobotCounts(outcome.allocation.robots, styles, catalog, 2),
+  );
 
   lines.push(
     "",
-    metric("Total Hours Provided", outcome.allocation.providedHours, styles),
+    metric(
+      "Total Hours Provided",
+      outcome.allocation.calculateProvidedHours(catalog),
+      styles,
+    ),
     metric(
       "Total Charging Cost",
-      `$${outcome.allocation.chargingCost}`,
+      `$${outcome.allocation.calculateChargingCost(catalog)}`,
       styles,
     ),
   );
